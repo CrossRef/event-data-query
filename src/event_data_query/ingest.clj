@@ -33,15 +33,17 @@
 
 
 (defn run-ingest
-  "Ingest data from the epoch to the end date inclusive."
-  ([force?] (run-ingest [(common/yesterday) force?]))
-  ([end-date force?]
-    (log/info "Ingest from" @common/epoch "to" end-date "force?" force?)
+  "Ingest data from the start date to the end date inclusive."
+  ([start-date end-date force?]
+    (log/info "Ingest from" start-date "to" end-date ", force:" force?)
     (mg/set-default-write-concern! WriteConcern/ACKNOWLEDGED)
     (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
-          date-range (take-while #(clj-time/before? % end-date) (clj-time-periodic/periodic-seq @common/epoch (clj-time/days 1)))
+          date-range (take-while #(clj-time/before? % (clj-time/plus end-date (clj-time/days 1))) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
           total-count (atom 0)]
+          (prn "DATE_RANGE" date-range)
       (doseq [date date-range]
+        ; TODO VERIFY inclusive
+        (prn date)
         (let [date-str (clj-time-format/unparse common/ymd-format date)
               previously-indexed (common/indexed-day? db date-str)
               should-index (or (nil? previously-indexed) force?)]

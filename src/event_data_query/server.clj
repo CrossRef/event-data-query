@@ -63,9 +63,9 @@
 ; Load at startup. The list changes so infrequently that the server can be restarted when a new one is added.
 (def sourcelist (delay (get-sourcelist)))
 
-; TODO merge this with some parts of execute-query
-(defn build-query
-  "Transform query parameters into a Mongo query. Throw IllegalArgumentException on error."
+
+(defn build-params-query
+  "Transform filter params dictionary into mongo query."
   [params]
   (let [from-occurred (when-let [date (:from-occurred-date params)] (common/start-of date))
         until-occurred (when-let [date (:until-occurred-date params)] (common/end-of date))
@@ -92,34 +92,35 @@
 
       (merge-with merge from-occurred-q until-occurred-q from-collected-q until-collected-q work-q prefix-q source-q)))
 
-(defn execute-query
-  "Execute a query against the database."
-  [db query rows cursor ignore-whitelist? include-experimental? updated-since-date]
-  (prn "query" query "rows" rows "cursor" cursor "ignore-whitelist?" ignore-whitelist? "include-experimental?" include-experimental? "updated-since-date" updated-since-date)
-
+(defn build-meta-query
+  "Transform meta params into a mongo query."
+  [cursor ignore-whitelist? include-experimental? updated-since-date]
   (let [with-cursor {:_id {o/$gt (or cursor "")}}
         with-whitelist (when-not ignore-whitelist? {:source_id {o/$in @sourcelist}})
         ; experimental is not present or true
         with-experimental (when include-experimental? {:experimental nil})
         ; don't serve deleted events by default. If updated-since date is included, do include them in addition to the filter.
-        with-updated-since-date (if updated-since-date {:_updated-date {o/$gte updated-since-date} :updated o/$exists}
+        with-updated-since-date (if updated-since-date {o/$and [{:_updated-date {o/$gte updated-since-date}} {:updated {o/$exists true}}]}
                                                        {:updated {o/$ne "deleted"}})
 
-        query-with-extras (merge-with merge query with-cursor with-whitelist with-experimental with-updated-since-date)
+        query (merge-with merge with-cursor with-whitelist with-experimental with-updated-since-date)]
+    
+    query))
 
-        cnt (mc/count db common/event-mongo-collection-name query-with-extras)
+(defn execute-query
+  "Execute a query against the database."
+  [db query rows]
+    (let [cnt (mc/count db common/event-mongo-collection-name query)
 
-        results (q/with-collection db common/event-mongo-collection-name
-                 (q/find query-with-extras)
-                 (q/sort (array-map :id 1))
-                 (q/limit rows))
-        events (map #(apply dissoc % common/special-fields) results)
+          results (q/with-collection db common/event-mongo-collection-name
+                   (q/find query)
+                   (q/sort (array-map :id 1))
+                   (q/limit rows))
+          events (map #(apply dissoc % common/special-fields) results)
 
+          next-cursor (-> results last :_id)]          
 
-        next-cursor (-> results last :_id)]
-        (prn query-with-extras)
-    [events next-cursor cnt]))
-
+      [events next-cursor cnt]))
 
 (defn split-filter
   "Split a comma and colon separated filter into a map, or :error."
@@ -156,10 +157,12 @@
                       filters (split-filter (get-in ctx [:request :params "filter"]))
                       
                       ; update-since is a query parameter
-                      updated-since-date (ymd-date-from-ctx (get-in ctx [:request :params "updated-since"]))
+                      updated-since-date (ymd-date-from-ctx (get-in ctx [:request :params "from-updated-date"]))
 
-                      query (try (build-query filters) (catch IllegalArgumentException ex :error))]
-
+                      filter-query (try (build-params-query filters) (catch IllegalArgumentException ex :error))
+                      meta-query (try (build-meta-query cursor override-whitelist experimental updated-since-date) (catch IllegalArgumentException ex :error))
+                      query (merge-with merge filter-query meta-query)]
+(prn query)
                   [(:error (set [updated-since-date rows query]))
                    {::updated-since-date updated-since-date
                     ::filters filters
@@ -170,14 +173,7 @@
                     ::query query}]))
 
   :handle-ok (fn [ctx]
-               (let [[events next-cursor total-results] (execute-query
-                                                 @db
-                                                 (::query ctx)
-                                                 (::rows ctx)
-                                                 (::cursor ctx)
-                                                 (::override-whitelist ctx)
-                                                 (::experimental ctx)
-                                                 (::updated-since-date ctx))]
+               (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::rows ctx))]
                 {:status "ok"
                  :message-type "event-list"
                  :message {

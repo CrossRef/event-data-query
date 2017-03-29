@@ -42,7 +42,6 @@ services:
      - STATUS_SERVICE=qcstatus
      - SERVICE_BASE=http://localhost:8101
      - SOURCE_QUERY=https://bus.eventdata.crossref.org/events/archive/%s
-     - EPOCH=2017-03-01
      - PORT=8101
      - JWT_SECRETS=TEST,TEST2
      - STATUS_SERVICE=http://rcstatus:8003

@@ -10,9 +10,9 @@ Backed by MongoDB.
 
 run with the following command:
  - `lein run server` - run the server
- - `lein run ingest-yesterday` - ingest all days' archives from the epoch until the yesterday, inclusive. Skip days if already done.
- - `lein run ingest-until` - ingest all days' archives from the epoch until the date, inclusive. Skip days if already done.
- - `lein run reingest-until` - re-ingest all days' archives from the epoch until the date, inclusive. 
+ - `lein run ingest-yesterday` - ingest yesterday's archive, unless already done
+ - `lein run ingest-range` - ingest date range between start and end date inclusive, unless already done
+ - `lein run reingest-range` - re-ingest date range between start and end date inclusive
 
 Provided as a Docker image with Docker Compose file for testing. If you're on a mac, you may want to run this outside Docker because MongoDB's mmaped files aren't compatible with the Docker host volume mapping (see [here](https://hub.docker.com/_/mongo/)).
 
@@ -58,5 +58,4 @@ etc
 | `SERVICE_BASE`       | Public URL base of this service, not including slash. |
 | `ARTIFACT_BASE`      | Public URL of Artifact registry     |
 | `SOURCE_QUERY`       | Template source query URL.          |
-| `EPOCH`              | Earliest date that we will gather data from and allow queries for. |
 | `MONGODB_URI`        | Connection URI for Mongo            |

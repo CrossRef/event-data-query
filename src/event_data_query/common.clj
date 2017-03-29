@@ -40,10 +40,6 @@
   []
   (clj-time/minus (clj-time/now) (clj-time/days 1)))
 
-(def epoch
-  (delay
-    (clj-time-format/parse ymd-format (:epoch env))))
-
 (def event-mongo-collection-name "events")
 (def indexed-mongo-collection-name "indexed")
 (def default-page-size 10000)
@@ -70,6 +66,7 @@
    :_obj_doi
    :_occurred-date
    :_timestamp-date
+   :_updated-date
    ; mongo adds this
    :_id])
 

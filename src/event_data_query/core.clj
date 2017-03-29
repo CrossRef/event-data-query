@@ -10,6 +10,6 @@
   [& args]
   (condp = (first args)
     "server" (server/run)
-    "ingest-yesterday" (ingest/run-ingest false)
-    "ingest-until" (ingest/run-ingest (common/try-parse-ymd-date (second args)) false)
-    "reingest-until" (ingest/run-ingest (common/try-parse-ymd-date (second args)) true)))
+    "ingest-yesterday" (ingest/run-ingest (common/yesterday) (common/yesterday) false)
+    "ingest-range" (ingest/run-ingest (common/try-parse-ymd-date (second args)) (common/try-parse-ymd-date (nth args 2)) false)
+    "reingest-range" (ingest/run-ingest (common/try-parse-ymd-date (second args)) (common/try-parse-ymd-date (nth args 2)) true)))
