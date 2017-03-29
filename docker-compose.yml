@@ -1,0 +1,49 @@
+version: '2'
+services:
+
+  redis:
+    image: redis
+
+  qcstatus:
+    image: crossref/event-data-status:0.1.2
+    expose:
+     - "8003"
+    ports:
+     - "8003:8003"
+    depends_on:
+     - redis
+    environment:
+     - REDIS_HOST=redis
+     - REDIS_PORT=6379
+     - REDIS_DB=0
+     - PORT=8003
+     - JWT_SECRETS=TEST,TEST2
+    command: "lein run"
+
+  mongo:
+    image: mongo
+    expose: [27017]
+
+  test:
+    depends_on:
+     - redis
+     - qcstatus
+     - mongo
+    build: .
+    ports:
+     - '8101:8101'
+    volumes:
+     - .:/usr/src/app
+     - ./.m2-cache:/root/.m2
+    environment:
+     - EVENT_BUS_BASE=http://138.201.202.133:8002
+     - SERVICE_BASE=http://localhost:8101/
+     - ARTIFACT_BASE=http://event-data-artifact-prod.s3.amazonaws.com
+     - STATUS_SERVICE=qcstatus
+     - SERVICE_BASE=http://localhost:8101
+     - SOURCE_QUERY=https://bus.eventdata.crossref.org/events/archive/%s
+     - EPOCH=2017-03-01
+     - PORT=8101
+     - JWT_SECRETS=TEST,TEST2
+     - STATUS_SERVICE=http://rcstatus:8003
+     - MONGODB_URI=mongodb://mongo/events
