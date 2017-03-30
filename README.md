@@ -36,6 +36,11 @@ To run tests
 
     docker-compose -f docker-compose.yml run -w /usr/src/app test lein test
 
+To push a demo event for indexing:
+
+    curl --verbose --header "Content-Type: application/json" --data  '{"obj_id":"https:\/\/doi.org\/10.1017\/s0963180100005168","source_token":"d9c55bad-73db-4860-be18-520d3891b01f","occurred_at":"2017-03-13T10:10:38.467Z","subj_id":"http:\/\/philpapers.org\/rec\/ANNAAS","id":"00003c22-1571-4bd3-924b-0438f6f7ff54","action":"add","subj":{"pid":"http:\/\/philpapers.org\/rec\/ANNAAS","work-type":"webpage","url":"http:\/\/philpapers.org\/rec\/ANNAAS"},"source_id":"test","obj":{"pid":"https:\/\/doi.org\/10.1017\/s0963180100005168","url":"https:\/\/doi.org\/10.1017\/s0963180100005168"},"timestamp":"2017-03-13T10:11:19.659Z","evidence-record":"https:\/\/evidence.eventdata.crossref.org\/evidence\/20170313e86bef03-4556-4ecc-8401-0e71af4d0bb6","relation_type_id":"mentions"}' -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyIxIjoiMSIsInN1YiI6Indpa2lwZWRpYSJ9.w7zV2vtKNzrNDfgr9dfRpv6XYnspILRli_V5vd1J29Q" http://localhost:8100/events
+
+
 ## Configuration
 
 The `SOURCE_QUERY` config parameter is a templated string which accepts a `YYYY-MM-DD` date. It could be:
@@ -59,3 +64,5 @@ etc
 | `ARTIFACT_BASE`      | Public URL of Artifact registry     |
 | `SOURCE_QUERY`       | Template source query URL.          |
 | `MONGODB_URI`        | Connection URI for Mongo            |
+| `JWT_SECRETS`        | JWT Secrets for push                |
+

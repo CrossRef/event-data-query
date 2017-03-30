@@ -31,18 +31,17 @@ services:
      - mongo
     build: .
     ports:
-     - '8101:8101'
+     - '8100:8100'
     volumes:
      - .:/usr/src/app
      - ./.m2-cache:/root/.m2
     environment:
      - EVENT_BUS_BASE=http://138.201.202.133:8002
-     - SERVICE_BASE=http://localhost:8101/
      - ARTIFACT_BASE=http://event-data-artifact-prod.s3.amazonaws.com
      - STATUS_SERVICE=qcstatus
-     - SERVICE_BASE=http://localhost:8101
      - SOURCE_QUERY=https://bus.eventdata.crossref.org/events/archive/%s
-     - PORT=8101
+     - PORT=8100
      - JWT_SECRETS=TEST,TEST2
-     - STATUS_SERVICE=http://rcstatus:8003
+     - STATUS_SERVICE=http://qcstatus:8003
      - MONGODB_URI=mongodb://mongo/events
+

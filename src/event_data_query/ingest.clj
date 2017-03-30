@@ -31,6 +31,10 @@
            [com.mongodb DB WriteConcern])
   (:gen-class))
 
+(defn ingest-one
+  "Ingest one event with string keys, pre-transformed."
+  [db transformed-event]
+  (mc/update-by-id db common/event-mongo-collection-name (get transformed-event "id") transformed-event {:upsert true}))
 
 (defn run-ingest
   "Ingest data from the start date to the end date inclusive."
@@ -40,10 +44,7 @@
     (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
           date-range (take-while #(clj-time/before? % (clj-time/plus end-date (clj-time/days 1))) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
           total-count (atom 0)]
-          (prn "DATE_RANGE" date-range)
       (doseq [date date-range]
-        ; TODO VERIFY inclusive
-        (prn date)
         (let [date-str (clj-time-format/unparse common/ymd-format date)
               previously-indexed (common/indexed-day? db date-str)
               should-index (or (nil? previously-indexed) force?)]
@@ -60,11 +61,10 @@
                       events (get stream "events")]
                   (log/info "Inserting...")
                   (doseq [event events]
-                    (mc/update-by-id db common/event-mongo-collection-name (get event "id") (common/transform-for-index event) {:upsert true})
+                    (ingest-one db (common/transform-for-index event))
                     (swap! total-count inc)
                     (when (zero? (mod @total-count 10000))
-                      (log/info "Ingested" @total-count "this session, currently Downloading" date))
-                    ))))
+                      (log/info "Ingested" @total-count "this session, currently Downloading" date))))))
             (common/set-indexed-day! db date-str)))
 
         (log/info "Pushed" @total-count "this session..."))

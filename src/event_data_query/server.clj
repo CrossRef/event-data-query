@@ -1,5 +1,8 @@
 (ns event-data-query.server
  (:require  [event-data-query.common :as common]
+            [event-data-common.status :as status]
+            [event-data-query.ingest :as ingest]
+            [event-data-common.jwt :as jwt]
             [config.core :refer [env]]
             [clj-time.core :as clj-time]
             [clj-time.format :as clj-time-format]
@@ -32,14 +35,14 @@
             [clojure.data.json :as json]
             [clojure.tools.logging :as log]
             [config.core :refer [env]]
-            [compojure.core :refer [defroutes GET]]
+            [compojure.core :refer [defroutes GET POST]]
             [ring.middleware.params :as middleware-params]
             [ring.middleware.resource :as middleware-resource]
             [ring.middleware.content-type :as middleware-content-type]
             [liberator.core :refer [defresource]]
             [liberator.representation :as representation]
-            [ring.util.response :as ring-response])
-
+            [ring.util.response :as ring-response]
+            [overtone.at-at :as at-at])
 
   (:import [org.bson.types ObjectId]
            [com.mongodb DB WriteConcern])
@@ -162,7 +165,9 @@
                       filter-query (try (build-params-query filters) (catch IllegalArgumentException ex :error))
                       meta-query (try (build-meta-query cursor override-whitelist experimental updated-since-date) (catch IllegalArgumentException ex :error))
                       query (merge-with merge filter-query meta-query)]
-(prn query)
+
+                  (log/info "Execute query" query)
+
                   [(:error (set [updated-since-date rows query]))
                    {::updated-since-date updated-since-date
                     ::filters filters
@@ -174,6 +179,8 @@
 
   :handle-ok (fn [ctx]
                (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::rows ctx))]
+                (status/send! "query" "serve" "event" (count events))
+                (status/send! "query" "serve" "request" 1)
                 {:status "ok"
                  :message-type "event-list"
                  :message {
@@ -181,6 +188,24 @@
                    :total-results total-results
                    :items-per-page (::rows ctx)
                    :events events}})))
+
+(defresource post-events
+  []
+  :allowed-methods [:post]
+  :available-media-types ["application/json"]
+  :authorized? (fn [ctx]
+                ; must validate ok, nothing more
+                (-> ctx :request :jwt-claims))
+
+  :malformed? (fn [ctx]
+                (let [event-body (try (-> ctx :request :body slurp json/read-str) (catch Exception ex nil))
+                      transformed-body (try  (common/transform-for-index event-body) (catch Exception ex nil))]
+                  [(not (and event-body transformed-body)) {::transformed-body transformed-body}]))
+
+  :post! (fn [ctx]
+           (status/send! "query" "ingest" "event" 1)
+           (ingest/ingest-one @db (::transformed-body ctx))))
+
 
 (defresource home
   []
@@ -191,7 +216,8 @@
 
 (defroutes app-routes
   (GET "/" [] (home))
-  (GET "/events" [] (events)))
+  (GET "/events" [] (events))
+  (POST "/events" [] (post-events)))
 
 (defn wrap-cors [handler]
   (fn [request]
@@ -201,13 +227,18 @@
 (def app
   (-> app-routes
      middleware-params/wrap-params
+     (jwt/wrap-jwt (:jwt-secrets env))
      (middleware-resource/wrap-resource "public")
      (middleware-content-type/wrap-content-type)
      (wrap-cors)))
 
+
+(def schedule-pool (at-at/mk-pool))
+
+
 (defn run []
   (let [port (Integer/parseInt (:port env))]
-
+    (at-at/every 10000 #(status/send! "query" "heartbeat" "tick" 1) schedule-pool)
 
     (log/info "Start server on " port)
     (server/run-server app {:port port})))
