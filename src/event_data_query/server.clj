@@ -100,8 +100,8 @@
   [cursor ignore-whitelist? include-experimental? updated-since-date]
   (let [with-cursor {:_id {o/$gt (or cursor "")}}
         with-whitelist (when-not ignore-whitelist? {:source_id {o/$in @sourcelist}})
-        ; experimental is not present or true
-        with-experimental (when include-experimental? {:experimental nil})
+        ; unless 'experimental' flag, exclude anything with an experimental flag
+        with-experimental (if include-experimental? {} {:experimental nil})
         ; don't serve deleted events by default. If updated-since date is included, do include them in addition to the filter.
         with-updated-since-date (if updated-since-date {o/$and [{:_updated-date {o/$gte updated-since-date}} {:updated {o/$exists true}}]}
                                                        {:updated {o/$ne "deleted"}})
@@ -113,6 +113,7 @@
 (defn execute-query
   "Execute a query against the database."
   [db query rows]
+    (prn "ROWS" rows)
     (let [cnt (mc/count db common/event-mongo-collection-name query)
 
           results (q/with-collection db common/event-mongo-collection-name
@@ -122,7 +123,7 @@
           events (map #(apply dissoc % common/special-fields) results)
 
           next-cursor (-> results last :_id)]          
-
+      (prn "GOT ROWS" (count results))
       [events next-cursor cnt]))
 
 (defn split-filter

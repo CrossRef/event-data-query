@@ -70,6 +70,18 @@
    ; mongo adds this
    :_id])
 
+(def extra-index-fields
+  "Fields that we want to index in addition to special-fields"
+  [; For uniqueness constraint.
+   "id"
+   "_updated-date"
+   "source_id"
+   "experimental"
+   "updated"
+
+   ; Index occurred_at for sorting.
+   "occurred_at"])
+
 (defn indexed-day?
   "Has the given day been indexed? If so, when as a date."
   [db date-string]

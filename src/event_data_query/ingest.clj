@@ -69,16 +69,13 @@
 
         (log/info "Pushed" @total-count "this session..."))
       (log/info "Finished ingesting dates. Set indexes...")
+      
       ; These will probably already be in place from last time.
-      (mc/ensure-index db common/event-mongo-collection-name {"_subj_prefix" 1})
-      (mc/ensure-index db common/event-mongo-collection-name {"_obj_prefix" 1})
-      (mc/ensure-index db common/event-mongo-collection-name {"id" 1})
-      (mc/ensure-index db common/event-mongo-collection-name {"_occurred-date" 1})
-      (mc/ensure-index db common/event-mongo-collection-name {"_timestamp-date" 1})
-      (mc/ensure-index db common/event-mongo-collection-name {"_updated-date" 1})
+      (doseq [field common/special-fields]
+        (mc/ensure-index db common/event-mongo-collection-name {field 1}))
 
-      ; Index occurred_at for sorting.
-      (mc/ensure-index db common/event-mongo-collection-name {"occurred_at" 1})
+      (doseq [field common/extra-index-fields]
+        (mc/ensure-index db common/event-mongo-collection-name {field 1}))
 
       (log/info "Done!"))))
 
