@@ -100,3 +100,10 @@
 (defn end-of [date-str]
   (let [parsed (clj-time/plus (clj-time-format/parse ymd-format date-str) (clj-time/days 1))]
     (clj-time/date-time (clj-time/year parsed) (clj-time/month parsed) (clj-time/day parsed))))
+
+(defn deep-merge
+  "Like merge, but merges maps recursively."
+  [& maps]
+  (if (every? map? maps)
+    (apply merge-with deep-merge maps)
+    (last maps)))

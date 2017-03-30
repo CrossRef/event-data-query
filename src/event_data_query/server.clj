@@ -93,7 +93,7 @@
         prefix-q (when prefix {o/$or [{:_subj_prefix prefix} {:_obj_prefix prefix}]})
         source-q (when source {:source_id source})]
 
-      (merge-with merge from-occurred-q until-occurred-q from-collected-q until-collected-q work-q prefix-q source-q)))
+      (common/deep-merge from-occurred-q until-occurred-q from-collected-q until-collected-q work-q prefix-q source-q)))
 
 (defn build-meta-query
   "Transform meta params into a mongo query."
@@ -106,24 +106,26 @@
         with-updated-since-date (if updated-since-date {o/$and [{:_updated-date {o/$gte updated-since-date}} {:updated {o/$exists true}}]}
                                                        {:updated {o/$ne "deleted"}})
 
-        query (merge-with merge with-cursor with-whitelist with-experimental with-updated-since-date)]
+        query (common/deep-merge with-cursor with-whitelist with-experimental with-updated-since-date)]
     
     query))
 
 (defn execute-query
   "Execute a query against the database."
   [db query rows]
-    (prn "ROWS" rows)
     (let [cnt (mc/count db common/event-mongo-collection-name query)
 
-          results (q/with-collection db common/event-mongo-collection-name
-                   (q/find query)
-                   (q/sort (array-map :id 1))
-                   (q/limit rows))
+          ; Mongo ignores limit parmeter when it's zero, so don't run query in that case.
+          results (if (zero? rows)
+                    []
+                    (q/with-collection db common/event-mongo-collection-name
+                      (q/find query)
+                      (q/sort (array-map :id 1))
+                      (q/limit rows)))
           events (map #(apply dissoc % common/special-fields) results)
 
           next-cursor (-> results last :_id)]          
-      (prn "GOT ROWS" (count results))
+      
       [events next-cursor cnt]))
 
 (defn split-filter
@@ -165,11 +167,13 @@
 
                       filter-query (try (build-params-query filters) (catch IllegalArgumentException ex :error))
                       meta-query (try (build-meta-query cursor override-whitelist experimental updated-since-date) (catch IllegalArgumentException ex :error))
-                      query (merge-with merge filter-query meta-query)]
+                      
+                      malformed (:error (set [updated-since-date rows filter-query meta-query]))
+                      query (when-not malformed (common/deep-merge filter-query meta-query))]
 
                   (log/info "Execute query" query)
 
-                  [(:error (set [updated-since-date rows query]))
+                  [malformed
                    {::updated-since-date updated-since-date
                     ::filters filters
                     ::experimental experimental
