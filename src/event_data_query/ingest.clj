@@ -74,8 +74,8 @@
       (doseq [field common/special-fields]
         (mc/ensure-index db common/event-mongo-collection-name {field 1}))
 
-      (doseq [field common/extra-index-fields]
-        (mc/ensure-index db common/event-mongo-collection-name {field 1}))
+      (doseq [[field unique] common/extra-index-fields]
+        (mc/ensure-index db common/event-mongo-collection-name {field 1} {:unique unique}))
 
       (log/info "Done!"))))
 

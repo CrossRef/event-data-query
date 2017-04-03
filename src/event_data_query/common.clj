@@ -71,16 +71,16 @@
    :_id])
 
 (def extra-index-fields
-  "Fields that we want to index in addition to special-fields"
+  "Fields that we want to index in addition to special-fields as [field unique]"
   [; For uniqueness constraint.
-   "id"
-   "_updated-date"
-   "source_id"
-   "experimental"
-   "updated"
+   ["id" true]
+   ["_updated-date" false]
+   ["source_id" false]
+   ["experimental" false]
+   ["updated" false]
 
    ; Index occurred_at for sorting.
-   "occurred_at"])
+   ["occurred_at" false]])
 
 (defn indexed-day?
   "Has the given day been indexed? If so, when as a date."

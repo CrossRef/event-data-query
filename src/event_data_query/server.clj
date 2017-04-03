@@ -33,7 +33,6 @@
             [org.httpkit.server :as server]
             [event-data-common.artifact :as artifact]
             [clojure.data.json :as json]
-            [clojure.tools.logging :as log]
             [config.core :refer [env]]
             [compojure.core :refer [defroutes GET POST]]
             [ring.middleware.params :as middleware-params]
@@ -75,6 +74,14 @@
   (:whitelist-override env))
 
 
+(defn and-queries
+  "Return a Mongo query object that's the result of anding all params. Nils allowed."
+  [& terms]
+  (let [terms (remove nil? terms)]
+    (if (empty? terms)
+      {}
+      {o/$and terms})))
+
 (defn build-filter-query
   "Transform filter params dictionary into mongo query."
   [params]
@@ -106,11 +113,13 @@
 
         from-collected-q (when from-collected {:_timestamp-date {o/$gte from-collected}})
         until-collected-q (when until-collected {:_timestamp-date {o/$lt until-collected}})
-
         work-q (when work {o/$or [{:_subj_doi work} {:_obj_doi work}]})
 
-        prefix-q (when prefix {o/$or [{:_subj_prefix prefix} {:_obj_prefix prefix}]})]
-      (common/deep-merge from-occurred-q until-occurred-q from-collected-q until-collected-q work-q prefix-q source-q)))
+        prefix-q (when prefix {o/$or [{:_subj_prefix prefix} {:_obj_prefix prefix}]})
+
+        query (and-queries from-occurred-q until-occurred-q from-collected-q until-collected-q work-q prefix-q source-q)]
+
+      query))
 
 (defn build-meta-query
   "Transform meta params into a mongo query."
@@ -122,7 +131,7 @@
         with-updated-since-date (if updated-since-date {o/$and [{:_updated-date {o/$gte updated-since-date}} {:updated {o/$exists true}}]}
                                                        {:updated {o/$ne "deleted"}})
 
-        query (common/deep-merge with-cursor with-experimental with-updated-since-date)]
+        query (and-queries with-cursor with-experimental with-updated-since-date)]
     
     query))
 
@@ -166,6 +175,7 @@
     (try (Integer/parseInt value)
       (catch IllegalArgumentException ex :error))))
 
+
 (defn export-event
   "Transform an event to send out."
   [event]
@@ -189,7 +199,7 @@
                       meta-query (try (build-meta-query cursor experimental updated-since-date) (catch IllegalArgumentException ex :error))
                       
                       malformed (:error (set [updated-since-date rows filter-query meta-query]))
-                      query (when-not malformed (common/deep-merge filter-query meta-query))]
+                      query (when-not malformed (and-queries filter-query meta-query))]
 
                   (log/info "Execute query" query)
 
