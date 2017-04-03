@@ -65,4 +65,6 @@ etc
 | `SOURCE_QUERY`       | Template source query URL.          |
 | `MONGODB_URI`        | Connection URI for Mongo            |
 | `JWT_SECRETS`        | JWT Secrets for push                |
+| `TERMS`              | A Terms URL to be associated with each event, if present |
+| `WHITELIST_OVERRIDE` | Ignore source whitelist?            |
 

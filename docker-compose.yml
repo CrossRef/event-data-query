@@ -44,4 +44,6 @@ services:
      - JWT_SECRETS=TEST,TEST2
      - STATUS_SERVICE=http://qcstatus:8003
      - MONGODB_URI=mongodb://mongo/events
+     - WHITELIST_OVERRIDE=true
+     - TERMS=https://doi.org/10.13003/CED-terms-of-use
 

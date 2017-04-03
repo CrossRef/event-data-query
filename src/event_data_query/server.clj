@@ -52,6 +52,10 @@
 
 (def event-data-homepage "https://www.crossref.org/services/event-data")
 
+(def terms-url
+  "URL of terms and conditions, or nil."
+  (:terms env))
+
 (def sourcelist-name
   "Artifact name for our source list."
   "crossref-sourcelist")
@@ -66,8 +70,12 @@
 ; Load at startup. The list changes so infrequently that the server can be restarted when a new one is added.
 (def sourcelist (delay (get-sourcelist)))
 
+(def whitelist-override
+  "Ignore the whitelist?"
+  (:whitelist-override env))
 
-(defn build-params-query
+
+(defn build-filter-query
   "Transform filter params dictionary into mongo query."
   [params]
   (let [from-occurred (when-let [date (:from-occurred-date params)] (common/start-of date))
@@ -79,7 +87,18 @@
         work (when-let [doi (:work params)] (cr-doi/normalise-doi doi))
 
         prefix (:prefix params)
-        source (:source params)
+
+        ; There is always some kind of source query.
+        source-q (if-let [source (:source params)]
+                   ; If source provided, use that, subject to whitelist.
+                   (if whitelist-override
+                     {:source_id source}
+                     {:source_id (@sourcelist source)})
+ 
+                   ; Otherwise if no source provided, return all that match the whitelist unless overriden.
+                   (if whitelist-override
+                      nil
+                      {:source_id {o/$in @sourcelist}}))
     
         ; Build a set of queries from the filter params, then merge them.
         from-occurred-q (when from-occurred {:_occurred-date {o/$gte from-occurred}})
@@ -90,23 +109,20 @@
 
         work-q (when work {o/$or [{:_subj_doi work} {:_obj_doi work}]})
 
-        prefix-q (when prefix {o/$or [{:_subj_prefix prefix} {:_obj_prefix prefix}]})
-        source-q (when source {:source_id source})]
-
+        prefix-q (when prefix {o/$or [{:_subj_prefix prefix} {:_obj_prefix prefix}]})]
       (common/deep-merge from-occurred-q until-occurred-q from-collected-q until-collected-q work-q prefix-q source-q)))
 
 (defn build-meta-query
   "Transform meta params into a mongo query."
-  [cursor ignore-whitelist? include-experimental? updated-since-date]
+  [cursor include-experimental? updated-since-date]
   (let [with-cursor {:_id {o/$gt (or cursor "")}}
-        with-whitelist (when-not ignore-whitelist? {:source_id {o/$in @sourcelist}})
         ; unless 'experimental' flag, exclude anything with an experimental flag
         with-experimental (if include-experimental? {} {:experimental nil})
         ; don't serve deleted events by default. If updated-since date is included, do include them in addition to the filter.
         with-updated-since-date (if updated-since-date {o/$and [{:_updated-date {o/$gte updated-since-date}} {:updated {o/$exists true}}]}
                                                        {:updated {o/$ne "deleted"}})
 
-        query (common/deep-merge with-cursor with-whitelist with-experimental with-updated-since-date)]
+        query (common/deep-merge with-cursor with-experimental with-updated-since-date)]
     
     query))
 
@@ -150,13 +166,17 @@
     (try (Integer/parseInt value)
       (catch IllegalArgumentException ex :error))))
 
+(defn export-event
+  "Transform an event to send out."
+  [event]
+  (if terms-url (assoc event :terms terms-url) event))
+
 (defresource events
   []
   :available-media-types ["application/json"]
   
   :malformed? (fn [ctx]
-                (let [override-whitelist (= (get-in ctx [:request :params "whitelist"]) "false")
-                      experimental (= (get-in ctx [:request :params "experimental"]) "true")
+                (let [experimental (= (get-in ctx [:request :params "experimental"]) "true")
                       cursor (get-in ctx [:request :params "cursor"])
                       rows (or (try-parse-int (get-in ctx [:request :params "rows"])) common/default-page-size)
 
@@ -165,8 +185,8 @@
                       ; update-since is a query parameter
                       updated-since-date (ymd-date-from-ctx (get-in ctx [:request :params "from-updated-date"]))
 
-                      filter-query (try (build-params-query filters) (catch IllegalArgumentException ex :error))
-                      meta-query (try (build-meta-query cursor override-whitelist experimental updated-since-date) (catch IllegalArgumentException ex :error))
+                      filter-query (try (build-filter-query filters) (catch IllegalArgumentException ex :error))
+                      meta-query (try (build-meta-query cursor experimental updated-since-date) (catch IllegalArgumentException ex :error))
                       
                       malformed (:error (set [updated-since-date rows filter-query meta-query]))
                       query (when-not malformed (common/deep-merge filter-query meta-query))]
@@ -177,13 +197,13 @@
                    {::updated-since-date updated-since-date
                     ::filters filters
                     ::experimental experimental
-                    ::override-whitelist override-whitelist
                     ::cursor cursor
                     ::rows rows
                     ::query query}]))
 
   :handle-ok (fn [ctx]
-               (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::rows ctx))]
+               (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::rows ctx))
+                      exported-events (map export-event events)]
                 (status/send! "query" "serve" "event" (count events))
                 (status/send! "query" "serve" "request" 1)
                 {:status "ok"
@@ -192,7 +212,7 @@
                    :next-cursor next-cursor
                    :total-results total-results
                    :items-per-page (::rows ctx)
-                   :events events}})))
+                   :events exported-events}})))
 
 (defresource post-events
   []
