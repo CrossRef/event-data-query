@@ -20,6 +20,7 @@
 (def full-format-no-ns (:date-time-no-ms clj-time-format/formatters))
 (def full-format (:date-time clj-time-format/formatters))
 
+; TODO this can be removed once we unify date formats for all sources.
 (defn parse-date-full
   "Parse two kinds of dates."
   [date-str]
@@ -27,14 +28,6 @@
     (clj-time-format/parse full-format-no-ns date-str)
     (catch IllegalArgumentException e
       (clj-time-format/parse full-format date-str))))
-
-(defn try-parse-ymd-date
-  "Parse date or nil on failure."
-  [date-str]
-  (try
-    (clj-time-format/parse ymd-format date-str)
-    (catch Exception _ nil)))
-
 
 (defn yesterday
   []
@@ -101,9 +94,3 @@
   (let [parsed (clj-time/plus (clj-time-format/parse ymd-format date-str) (clj-time/days 1))]
     (clj-time/date-time (clj-time/year parsed) (clj-time/month parsed) (clj-time/day parsed))))
 
-(defn deep-merge
-  "Like merge, but merges maps recursively."
-  [& maps]
-  (if (every? map? maps)
-    (apply merge-with deep-merge maps)
-    (last maps)))
