@@ -81,8 +81,12 @@
           events (map #(apply dissoc % common/special-fields) results)
 
           next-cursor (-> results last :_id)]          
-      
       [events next-cursor cnt]))
+
+(defn get-event
+  [db id]
+  (when-let [event (mc/find-one-as-map db common/event-mongo-collection-name {:id id})]
+    (apply dissoc event common/special-fields)))
 
 (defn split-filter
   "Split a comma and colon separated filter into a map, or :error."
@@ -147,6 +151,24 @@
                    :items-per-page (::rows ctx)
                    :events exported-events}})))
 
+(defresource event
+  [id]
+  :available-media-types ["application/json"]
+  
+  :exists? (fn [ctx]
+            (let [the-event (get-event @db id)]
+              [the-event {::event the-event}]))
+
+  :handle-ok (fn [ctx]
+              (status/send! "query" "serve" "event" 1)
+              (status/send! "query" "serve" "request" 1)
+              {:status "ok"
+               :message-type "event"
+               :message {
+                 :event (export-event (::event ctx))}})
+
+  :handle-not-found (fn [ctx] {:status "not-found"}))
+
 (defresource post-events
   []
   :allowed-methods [:post]
@@ -175,6 +197,7 @@
 (defroutes app-routes
   (GET "/" [] (home))
   (GET "/events" [] (events))
+  (GET "/events/:id" [id] (event id))
   (POST "/events" [] (post-events)))
 
 (defn wrap-cors [handler]
