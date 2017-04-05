@@ -2,6 +2,7 @@
  (:require  [event-data-query.common :as common]
             [event-data-common.status :as status]
             [event-data-query.ingest :as ingest]
+            [event-data-query.query :as query]
             [event-data-common.jwt :as jwt]
             [config.core :refer [env]]
             [clj-time.core :as clj-time]
@@ -23,7 +24,6 @@
 
             [monger.core :as mg]
             [monger.collection :as mc]
-            [monger.operators :as o]
             [monger.query :as q]
             ; Not directly used, but converts clj-time dates in the background.
             [monger.joda-time]
@@ -65,112 +65,6 @@
   (let [source-names (-> sourcelist-name artifact/fetch-latest-artifact-string (clojure.string/split #"\n") set)]
     (log/info "Retrieved source names:" source-names)
     source-names))
-
-; Load at startup. The list changes so infrequently that the server can be restarted when a new one is added.
-(def sourcelist
-  "Set of whitelisted source ids"
-  (atom nil))
-
-(def whitelist-override
-  "Ignore the whitelist?"
-  (atom nil))
-
-
-(defn and-queries
-  "Return a Mongo query object that's the result of anding all params. Nils allowed."
-  [& terms]
-  (let [terms (remove nil? terms)]
-    (if (empty? terms)
-      {}
-      {o/$and terms})))
-
-(defn q-from-occurred-date
-  [params]
-  (when-let [date (:from-occurred-date params)]
-    {:_occurred-date {o/$gte (common/start-of date)}}))
-
-(defn q-until-occurred-date
-  [params]
-  (when-let [date (:until-occurred-date params)]
-    {:_occurred-date {o/$lt (common/end-of date)}}))
-
-(defn q-from-collected-date
-  [params]
-  (when-let [date (:from-collected-date params)]
-    {:_timestamp-date {o/$gte (common/start-of date)}}))
-
-(defn q-until-collected-date
-  [params]
-  (when-let [date (:until-collected-date params)] 
-    {:_timestamp-date {o/$lt (common/end-of date)}}))
-
-(defn q-work
-  [params]
-  (when-let [doi (:work params)]
-    {o/$or [{:_subj_doi (cr-doi/normalise-doi doi)}
-            {:_obj_doi (cr-doi/normalise-doi doi)}]}))
-
-(defn q-prefix
-  [params]
-  (when-let [prefix (:prefix params)]
-    {o/$or [{:_subj_prefix prefix} {:_obj_prefix prefix}]}))
-
-(defn q-source
-  [params]
-  (if-let [source (:source params)]
-     ; If source provided, use that, subject to whitelist.
-    (if @whitelist-override
-      {:source_id source}
-      {:source_id (@sourcelist source)}) 
-    ; Otherwise if no source provided, return all that match the whitelist unless overriden.
-    (if @whitelist-override
-       nil
-       {:source_id {o/$in (vec @sourcelist)}})))
-
-(def query-processors
-  (juxt q-from-occurred-date
-        q-until-occurred-date
-        q-from-collected-date
-        q-until-collected-date
-        q-work
-        q-prefix
-        q-source))
-
-(defn build-filter-query
-  "Transform filter params dictionary into mongo query."
-  [params]
-  (apply and-queries (query-processors params)))
-
-; Build meta-query fragments from query parameter dictionary. 
-; Throw exceptions.
-(defn mq-cursor
-  [params]
-  (when-let [value (params "cursor")]
-    {:_id {o/$gt value}}))
-
-(defn mq-experimental
-  [params]
-  (if (= (params "experimental") "true")
-    {}
-    {:experimental nil}))
-
-(defn mq-updated-since-date
-  [params]
-  (if-let [date-str (params "from-updated-date")]
-    {o/$and [{:_updated-date {o/$gte (common/start-of date-str)}}
-             {:updated {o/$exists true}}]}
-    {:updated {o/$ne "deleted"}}))
-
-(def meta-query-processors
-  (juxt mq-cursor
-        mq-experimental
-        mq-updated-since-date))
-
-(defn build-meta-query
-  "Transform query params dictionary into mongo query."
-  [params]
-  (apply and-queries (meta-query-processors params)))
-
 
 (defn execute-query
   "Execute a query against the database."
@@ -228,17 +122,17 @@
 
                       filters (split-filter (get-in ctx [:request :params "filter"]))
                       
-                      filter-query (try (build-filter-query filters) (catch IllegalArgumentException ex :error))
-                      meta-query (try (build-meta-query (get-in ctx [:request :params])) (catch IllegalArgumentException ex :error))
+                      filter-query (try (query/build-filter-query filters) (catch IllegalArgumentException ex :error))
+                      meta-query (try (query/build-meta-query (get-in ctx [:request :params])) (catch IllegalArgumentException ex :error))
                       
                       malformed (:error (set [rows filter-query meta-query]))
-                      query (when-not malformed (and-queries filter-query meta-query))]
+                      the-query (when-not malformed (query/and-queries filter-query meta-query))]
 
-                  (log/info "Execute query" query)
+                  (log/info "Execute query" the-query)
 
                   [malformed
                    {::rows rows
-                    ::query query}]))
+                    ::query the-query}]))
 
   :handle-ok (fn [ctx]
                (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::rows ctx))
@@ -301,8 +195,8 @@
 
 
 (defn run []
-  (reset! sourcelist (get-sourcelist))
-  (reset! whitelist-override (:whitelist-override env))
+  (reset! query/sourcelist (get-sourcelist))
+  (reset! query/whitelist-override (:whitelist-override env))
 
   (let [port (Integer/parseInt (:port env))]
     (at-at/every 10000 #(status/send! "query" "heartbeat" "tick" 1) schedule-pool)

@@ -71,6 +71,8 @@
    ["source_id" false]
    ["experimental" false]
    ["updated" false]
+   ["subj.internal-id" false]
+   ["obj.internal-id" false]
 
    ; Index occurred_at for sorting.
    ["occurred_at" false]])
