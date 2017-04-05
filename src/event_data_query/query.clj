@@ -63,6 +63,12 @@
        nil
        {:source_id {o/$in (vec @sourcelist)}})))
 
+(defn q-alternative-id
+  [params]
+  (when-let [id (:alternative-id params)]
+    {o/$or [{:subj.alternative-id id}
+            {:obj.alternative-id id}]}))
+
 (def query-processors
   (juxt q-from-occurred-date
         q-until-occurred-date
@@ -70,7 +76,8 @@
         q-until-collected-date
         q-work
         q-prefix
-        q-source))
+        q-source
+        q-alternative-id))
 
 (defn build-filter-query
   "Transform filter params dictionary into mongo query."

@@ -86,6 +86,13 @@
         {:source_id "UNRECOGNISED-SOURCE"})
       "source should be per parameter")))
 
+(deftest q-alternative-id
+  (testing "q-alternative-id creates query including alternative-id field on subj or obj, when present"
+    (is (= (query/q-alternative-id {:alternative-id "123456"})
+           {"$or" [{:subj.alternative-id "123456"}
+                   {:obj.alternative-id "123456"}]})
+          "looking in subj or obj alternative-id field.")))
+
 (deftest build-filter-query
   (reset! query/sourcelist #{"source-one" "source-two"})
   (reset! query/whitelist-override false)
@@ -97,7 +104,8 @@
                  :until-collected-date "2014-01-01"
                  :work "10.5555/12345678"
                  :prefix "10.5555"
-                 :source "source-one"}
+                 :source "source-one"
+                 :alternative-id "123456"}
           result (query/build-filter-query input)]
       (is (= result
         {"$and" [{:_occurred-date {"$gte" (clj-time/date-time 2011 1 1)}}
@@ -108,7 +116,9 @@
                          {:_obj_doi "https://doi.org/10.5555/12345678"}]}
                  {"$or" [{:_subj_prefix "10.5555"}
                          {:_obj_prefix "10.5555"}]}
-                 {:source_id "source-one"}]}))))
+                 {:source_id "source-one"}
+                 {"$or" [{:subj.alternative-id "123456"}
+                         {:obj.alternative-id "123456"}]}]}))))
 
   (testing "build-filter-query handles empty query"
     (is (= (query/build-filter-query {})
