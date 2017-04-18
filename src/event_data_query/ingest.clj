@@ -36,6 +36,23 @@
   [db transformed-event]
   (mc/update-by-id db common/event-mongo-collection-name (get transformed-event "id") transformed-event {:upsert true}))
 
+(defn add-indexes 
+  "Add indexes to database if not exist"
+  []
+  (log/info "Adding indexes...")
+  (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
+        counter (atom 0)
+        total-fields (+ (count common/special-fields) (count common/extra-index-fields))]
+    (doseq [field common/special-fields]
+      (swap! counter inc)
+      (log/info "Adding" field " " @counter "/" total-fields)
+      (mc/ensure-index db common/event-mongo-collection-name {field 1}))
+
+    (doseq [[field unique] common/extra-index-fields]
+      (swap! counter inc)
+      (log/info "Adding" field " " @counter "/" total-fields)
+      (mc/ensure-index db common/event-mongo-collection-name {field 1} {:unique unique}))))
+
 (defn run-ingest
   "Ingest data from the start date to the end date inclusive."
   ([start-date end-date force?]
@@ -70,12 +87,7 @@
         (log/info "Pushed" @total-count "this session..."))
       (log/info "Finished ingesting dates. Set indexes...")
       
-      ; These will probably already be in place from last time.
-      (doseq [field common/special-fields]
-        (mc/ensure-index db common/event-mongo-collection-name {field 1}))
-
-      (doseq [[field unique] common/extra-index-fields]
-        (mc/ensure-index db common/event-mongo-collection-name {field 1} {:unique unique}))
+      (add-indexes)
 
       (log/info "Done!"))))
 

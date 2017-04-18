@@ -76,7 +76,7 @@
                     []
                     (q/with-collection db common/event-mongo-collection-name
                       (q/find query)
-                      (q/sort (array-map :id 1))
+                      (q/sort (array-map :_id 1))
                       (q/limit rows)))
           events (map #(apply dissoc % common/special-fields) results)
 

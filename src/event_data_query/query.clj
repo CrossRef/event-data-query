@@ -41,10 +41,21 @@
     {:_timestamp-date {o/$lt (common/end-of date)}}))
 
 (defn q-work
+  "Query for the work. If it's a DOI, normalize."
   [params]
-  (when-let [doi (:work params)]
-    {o/$or [{:_subj_doi (cr-doi/normalise-doi doi)}
-            {:_obj_doi (cr-doi/normalise-doi doi)}]}))
+  (when-let [work (:work params)]
+    (if (cr-doi/well-formed work)
+      (let [doi (cr-doi/normalise-doi work)]
+        {o/$or [{:_subj_doi doi}
+                {:_obj_doi doi}]})
+
+      {o/$or [{:_subj_id work}
+              {:_obj_id work}]})))
+
+(defn q-relation
+  [params]
+  (when-let [relation (:relation params)]
+    {:relation_type_id relation}))
 
 (defn q-prefix
   [params]
@@ -77,7 +88,8 @@
         q-work
         q-prefix
         q-source
-        q-alternative-id))
+        q-alternative-id
+        q-relation))
 
 (defn build-filter-query
   "Transform filter params dictionary into mongo query."

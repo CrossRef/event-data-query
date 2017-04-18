@@ -40,12 +40,33 @@
       "'timestamp' at less than next day using special indexed field")))
 
 (deftest q-work
-  (testing "q-work creates query including :work when present, and normalizes"
+  (testing "when 'work' is present and it's a DOI, q-work creates query that matches subject or object DOI."
     (is (= (query/q-work {:work "10.5555/12345678"})
            {"$or" [{:_subj_doi "https://doi.org/10.5555/12345678"}
                    {:_obj_doi "https://doi.org/10.5555/12345678"}]})
-          "looking in special subj or obj DOI field.")))
-    
+          "Looking in special subj or obj DOI field for normalized DOI.")
+
+    (is (= (query/q-work {:work "http://dx.doi.org/10.5555/12345678"})
+           {"$or" [{:_subj_doi "https://doi.org/10.5555/12345678"}
+                   {:_obj_doi "https://doi.org/10.5555/12345678"}]})
+          "Looking in special subj or obj DOI field for normalized DOI."))
+
+  (testing "when 'work' is present and it's a DOI, q-work creates query that matches subject or object DOI."
+    (is (= (query/q-work {:work "10.5555/12345678"})
+           {"$or" [{:_subj_doi "https://doi.org/10.5555/12345678"}
+                   {:_obj_doi "https://doi.org/10.5555/12345678"}]})
+          "Looking in special subj or obj DOI field for normalized DOI.")
+
+    (is (= (query/q-work {:work "https://hypothes.is/a/NQw-fhJwEeeFer_r68hwoQ"})
+           {"$or" [{:_subj_id "https://hypothes.is/a/NQw-fhJwEeeFer_r68hwoQ"}
+                   {:_obj_id "https://hypothes.is/a/NQw-fhJwEeeFer_r68hwoQ"}]})
+          "Looking in subj or obj id field when not a DOI.")))
+
+(deftest q-relation
+  (testing "q-relation adds relation filter when present"
+    (is (= (query/q-relation {:relation "discusses"})
+           {:relation_type_id "discusses"}))))
+
 (deftest q-prefix
   (testing "q-prefix creates query including :prefix when present"
     (is (= (query/q-prefix {:prefix "10.5555"})
@@ -104,6 +125,7 @@
                  :until-collected-date "2014-01-01"
                  :work "10.5555/12345678"
                  :prefix "10.5555"
+                 :relation "discusses"
                  :source "source-one"
                  :alternative-id "123456"}
           result (query/build-filter-query input)]
@@ -118,7 +140,8 @@
                          {:_obj_prefix "10.5555"}]}
                  {:source_id "source-one"}
                  {"$or" [{:subj.alternative-id "123456"}
-                         {:obj.alternative-id "123456"}]}]}))))
+                         {:obj.alternative-id "123456"}]}
+                 {:relation_type_id "discusses"}]}))))
 
   (testing "build-filter-query handles empty query"
     (is (= (query/build-filter-query {})

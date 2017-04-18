@@ -35,7 +35,7 @@
 
 (def event-mongo-collection-name "events")
 (def indexed-mongo-collection-name "indexed")
-(def default-page-size 10000)
+(def default-page-size 1000)
 
 ; Keep `transform-for-index and special-fields together.
 (defn transform-for-index
@@ -73,6 +73,9 @@
    ["updated" false]
    ["subj.internal-id" false]
    ["obj.internal-id" false]
+   ["relation_type_id" false]
+   ["subj_id" false]
+   ["obj_id" false]
 
    ; Index occurred_at for sorting.
    ["occurred_at" false]])
