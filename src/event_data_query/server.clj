@@ -115,6 +115,11 @@
   [event]
   (if terms-url (assoc event "terms" terms-url) event))
 
+; For batches of > 10, this is 4x faster than individual checks.
+(defn alternative-ids-exist
+  [db alternative-ids]
+  (map #(-> % :subj :alternative-id) (mc/find-maps db common/event-mongo-collection-name {:subj.alternative-id {"$in" alternative-ids}} {:subj.alternative-id 1})))
+
 (defresource events
   []
   :available-media-types ["application/json"]
@@ -186,6 +191,17 @@
            (status/send! "query" "ingest" "event" 1)
            (ingest/ingest-one @db (::transformed-body ctx))))
 
+; Return all anternative-ids that match an alternative-id of a subject in the index.
+(defresource alternative-ids-check
+  []
+  :allowed-methods [:get]
+  :available-media-types ["application/json"]
+  :handle-ok (fn [ctx]
+               (let [ids (.split
+                         (get-in ctx [:request :params "ids"] "")
+                        ",")
+                    matches (alternative-ids-exist @db ids)]
+                {:alternative-ids matches})))
 
 (defresource home
   []
@@ -198,7 +214,8 @@
   (GET "/" [] (home))
   (GET "/events" [] (events))
   (GET "/events/:id" [id] (event id))
-  (POST "/events" [] (post-events)))
+  (POST "/events" [] (post-events))
+  (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
 
 (defn wrap-cors [handler]
   (fn [request]
