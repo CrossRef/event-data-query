@@ -31,7 +31,7 @@
             [clojure.java.io :as io]
 
             [org.httpkit.server :as server]
-            [event-data-common.artifact :as artifact]
+            
             [clojure.data.json :as json]
             [config.core :refer [env]]
             [compojure.core :refer [defroutes GET POST]]
@@ -54,17 +54,6 @@
 (def terms-url
   "URL of terms and conditions, or nil."
   (:terms env))
-
-(def sourcelist-name
-  "Artifact name for our source list."
-  "crossref-sourcelist")
-
-(defn get-sourcelist
-  "Fetch a set of source_ids that we're allowed to serve."
-  []
-  (let [source-names (-> sourcelist-name artifact/fetch-latest-artifact-string (clojure.string/split #"\n") set)]
-    (log/info "Retrieved source names:" source-names)
-    source-names))
 
 (defn execute-query
   "Execute a query against the database."
@@ -146,8 +135,9 @@
   :handle-ok (fn [ctx]
                (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::rows ctx))
                       exported-events (map export-event events)]
-                (status/send! "query" "serve" "event" (count events))
-                (status/send! "query" "serve" "request" 1)
+                (when (:status-service env)
+                  (status/send! "query" "serve" "event" (count events))
+                  (status/send! "query" "serve" "request" 1))
                 {:status "ok"
                  :message-type "event-list"
                  :message {
@@ -161,35 +151,20 @@
   :available-media-types ["application/json"]
   
   :exists? (fn [ctx]
-            (let [the-event (get-event @db id)]
-              [the-event {::event the-event}]))
+            (let [the-event (get-event @db id)
+                  deleted (= (get the-event :updated) "deleted")]
+              [(and the-event (not deleted)) {::event the-event}]))
 
   :handle-ok (fn [ctx]
-              (status/send! "query" "serve" "event" 1)
-              (status/send! "query" "serve" "request" 1)
+              (when (:status-service env)
+                (status/send! "query" "serve" "event" 1)
+                (status/send! "query" "serve" "request" 1))
               {:status "ok"
                :message-type "event"
                :message {
                  :event (export-event (::event ctx))}})
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
-
-(defresource post-events
-  []
-  :allowed-methods [:post]
-  :available-media-types ["application/json"]
-  :authorized? (fn [ctx]
-                ; must validate ok, nothing more
-                (-> ctx :request :jwt-claims))
-
-  :malformed? (fn [ctx]
-                (let [event-body (try (-> ctx :request :body slurp json/read-str) (catch Exception ex nil))
-                      transformed-body (try  (common/transform-for-index event-body) (catch Exception ex nil))]
-                  [(not (and event-body transformed-body)) {::transformed-body transformed-body}]))
-
-  :post! (fn [ctx]
-           (status/send! "query" "ingest" "event" 1)
-           (ingest/ingest-one @db (::transformed-body ctx))))
 
 ; Return all anternative-ids that match an alternative-id of a subject in the index.
 (defresource alternative-ids-check
@@ -214,7 +189,6 @@
   (GET "/" [] (home))
   (GET "/events" [] (events))
   (GET "/events/:id" [id] (event id))
-  (POST "/events" [] (post-events))
   (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
 
 (defn wrap-cors [handler]
@@ -225,7 +199,6 @@
 (def app
   (-> app-routes
      middleware-params/wrap-params
-     (jwt/wrap-jwt (:jwt-secrets env))
      (middleware-resource/wrap-resource "public")
      (middleware-content-type/wrap-content-type)
      (wrap-cors)))
@@ -235,11 +208,9 @@
 
 
 (defn run []
-  (reset! query/sourcelist (get-sourcelist))
-  (reset! query/whitelist-override (:whitelist-override env))
-
   (let [port (Integer/parseInt (:port env))]
-    (at-at/every 10000 #(status/send! "query" "heartbeat" "tick" 1) schedule-pool)
+    (when (:status-service env)
+      (at-at/every 10000 #(status/send! "query" "heartbeat" "tick" 1) schedule-pool))
 
     (log/info "Start server on " port)
     (server/run-server app {:port port})))

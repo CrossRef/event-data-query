@@ -3,15 +3,6 @@
             [event-data-query.common :as common]
             [crossref.util.doi :as cr-doi]))
 
-(def whitelist-override
-  "Ignore the whitelist?"
-  (atom nil))
-
-; Loaded at startup. The list changes so infrequently that the server can be restarted when a new one is added.
-(def sourcelist
-  "Set of whitelisted source ids"
-  (atom nil))
-
 (defn and-queries
   "Return a Mongo query object that's the result of anding all params. Nils allowed."
   [& terms]
@@ -65,14 +56,7 @@
 (defn q-source
   [params]
   (if-let [source (:source params)]
-     ; If source provided, use that, subject to whitelist.
-    (if @whitelist-override
-      {:source_id source}
-      {:source_id (@sourcelist source)}) 
-    ; Otherwise if no source provided, return all that match the whitelist unless overriden.
-    (if @whitelist-override
-       nil
-       {:source_id {o/$in (vec @sourcelist)}})))
+    {:source_id source}))
 
 (defn q-alternative-id
   [params]
@@ -112,7 +96,7 @@
 (defn mq-updated-since-date
   [params]
   (if-let [date-str (params "from-updated-date")]
-    {o/$and [{:_updated-date {o/$gte (common/start-of date-str)}}
+    {o/$and [{:_updated_date {o/$gte (common/start-of date-str)}}
              {:updated {o/$exists true}}]}
     {:updated {o/$ne "deleted"}}))
 

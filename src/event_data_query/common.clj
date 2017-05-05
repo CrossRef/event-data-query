@@ -17,24 +17,19 @@
   [org.httpkit.server :as server]))
 
 (def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
-(def full-format-no-ns (:date-time-no-ms clj-time-format/formatters))
-(def full-format (:date-time clj-time-format/formatters))
+(def full-format-no-ms (:date-time-no-ms clj-time-format/formatters))
 
-; TODO this can be removed once we unify date formats for all sources.
-(defn parse-date-full
+(defn parse-date
   "Parse two kinds of dates."
   [date-str]
-  (try
-    (clj-time-format/parse full-format-no-ns date-str)
-    (catch IllegalArgumentException e
-      (clj-time-format/parse full-format date-str))))
+  (clj-time-format/parse full-format-no-ms date-str))
+    
 
 (defn yesterday
   []
   (clj-time/minus (clj-time/now) (clj-time/days 1)))
 
 (def event-mongo-collection-name "events")
-(def indexed-mongo-collection-name "indexed")
 (def default-page-size 1000)
 
 ; Keep `transform-for-index and special-fields together.
@@ -47,9 +42,9 @@
     "_subj_doi" (when-let [pid (get event "subj_id")] (when (cr-doi/well-formed pid) (cr-doi/normalise-doi pid)))
     "_obj_doi" (when-let [pid (get event "obj_id")] (when (cr-doi/well-formed pid) (cr-doi/normalise-doi pid)))
 
-    "_occurred-date" (parse-date-full (get event "occurred_at"))
-    "_timestamp-date" (parse-date-full (get event "timestamp"))
-    "_updated-date" (when-let [date (get event "updated-date")] (parse-date-full date))))
+    "_occurred-date" (parse-date (get event "occurred_at"))
+    "_timestamp-date" (parse-date (get event "timestamp"))
+    "_updated_date" (when-let [date (get event "updated_date")] (parse-date date))))
 
 (def special-fields
   "Fields that we add for indexing, should not be exposed."
@@ -59,7 +54,7 @@
    :_obj_doi
    :_occurred-date
    :_timestamp-date
-   :_updated-date
+   :_updated_date
    ; mongo adds this
    :_id])
 
@@ -67,7 +62,7 @@
   "Fields that we want to index in addition to special-fields as [field unique]"
   [; For uniqueness constraint.
    ["id" true]
-   ["_updated-date" false]
+   ["_updated_date" false]
    ["source_id" false]
    ["experimental" false]
    ["updated" false]
@@ -79,17 +74,6 @@
 
    ; Index occurred_at for sorting.
    ["occurred_at" false]])
-
-(defn indexed-day?
-  "Has the given day been indexed? If so, when as a date."
-  [db date-string]
-  (-> (mc/find-one-as-map db indexed-mongo-collection-name {:events-date date-string}) :indexed-date))
-
-(defn set-indexed-day!
-  "Record that events collected on this date were indexed now."
-  [db date-str]
-  (let [now-str (str (clj-time/now))]
-    (mc/insert db indexed-mongo-collection-name {:events-date date-str :indexed-date now-str})))
 
 (defn start-of [date-str]
   (let [parsed (clj-time-format/parse ymd-format date-str)]

@@ -74,35 +74,13 @@
                    {:_obj_prefix "10.5555"}]})
           "looking in special subj or obj prefix field.")))
 
-(deftest q-source-whitelist-not-overriden
-  (reset! query/sourcelist #{"source-one" "source-two"})
-  (reset! query/whitelist-override false)
-
-  (testing "q-source creates query including :source when present and recognised in whitelist, when whitelist isn't overridden"
-    (is (= (query/q-source {:source "source-one"})
-           {:source_id "source-one"})
-      "single source should be specified when it meets the whitelist"))
-
-  (testing "q-source creates query with all sources when source param not present, when whitelist isn't overridden"
-    (is (= (query/q-source {})
-        {:source_id {"$in" ["source-one" "source-two"]}})
-      "all whitelist sources shoudl be specified when none supplied"))
-
-  (testing "q-source creates query including nil source when present but not recognised in whitelist, when whitelist isn't overridden"
-    (is (= (query/q-source {:source "UNRECOGNISED-SOURCE"})
-           {:source_id nil})
-      "source should be nil")))
-
-(deftest q-source-whitelist-overriden
-  (reset! query/sourcelist #{"source-one" "source-two"})
-  (reset! query/whitelist-override true)
-
-  (testing "q-source creates query with no specified sources (i.e. no restriction) when source param not present, when whitelist is overridden"
+(deftest q-source-whitelist
+  (testing "q-source creates query with no specified sources (i.e. no restriction) when source param not present"
     (is (= (query/q-source {})
            nil)
           "no source query should be given"))
 
-  (testing "q-source creates query source when present, regardless of whitelist, when whitelist is overridden"
+  (testing "q-source creates query source when present, regardless of whitelist"
     (is (= (query/q-source {:source "UNRECOGNISED-SOURCE"})
         {:source_id "UNRECOGNISED-SOURCE"})
       "source should be per parameter")))
@@ -115,9 +93,6 @@
           "looking in subj or obj alternative-id field.")))
 
 (deftest build-filter-query
-  (reset! query/sourcelist #{"source-one" "source-two"})
-  (reset! query/whitelist-override false)
-
   (testing "build-filter-query combines output of all clauses"
     (let [input {:from-occurred-date "2011-01-01"
                  :until-occurred-date "2012-01-01"
@@ -146,7 +121,7 @@
   (testing "build-filter-query handles empty query"
     (is (= (query/build-filter-query {})
             ; default values from empty source
-            {"$and" [{:source_id {"$in" ["source-one" "source-two"]}}]}))))
+            {}))))
 
 (deftest mq-cursor
   (testing "cursor included when supplied"
@@ -169,7 +144,7 @@
 (deftest mq-updated-since-date
   (testing "when update-date supplied, filter includes all and only events since that date"
     (is (= (query/mq-updated-since-date {"from-updated-date" "2017-01-01"})
-           {"$and" [{:_updated-date {"$gte" (clj-time/date-time 2017 1 1)}}
+           {"$and" [{:_updated_date {"$gte" (clj-time/date-time 2017 1 1)}}
                     {:updated {"$exists" true}}]})))
 
   (testing "when update-date not supplied, filter excludes events that have been deleted"

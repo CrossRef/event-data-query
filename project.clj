@@ -1,11 +1,11 @@
-(defproject event-data-query "0.1.6"
+(defproject event-data-query "0.1.7"
   :description "Event Data Query"
   :url "http://eventdata.crossref.org/"
   :license {:name "MIT License"
             :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/core.cache "0.6.5"]
-                 [event-data-common "0.1.20"]
+                 [event-data-common "0.1.25"]
                  [org.clojure/data.json "0.2.6"]
                  [crossref-util "0.1.10"]
                  [clj-http "3.4.1"]
@@ -29,4 +29,5 @@
                  [ring/ring-servlet "1.5.0"]]
   :main ^:skip-aot event-data-query.core
   :target-path "target/%s"
+  :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:uberjar {:aot :all}})

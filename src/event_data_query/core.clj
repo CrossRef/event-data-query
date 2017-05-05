@@ -2,17 +2,18 @@
   (:require [event-data-query.ingest :as ingest]
             [event-data-query.server :as server]
             [event-data-query.common :as common]
-            [clj-time.format :as clj-time-format])
+            [clj-time.format :as clj-time-format]
+            [clojure.tools.logging :as log])
   (:gen-class))
-
 
 (defn -main
   [& args]
   (condp = (first args)
     "server" (server/run)
+    "replicate-continuous" (ingest/replicate-continuous)
+    "replicate-backfill-days" (ingest/replicate-backfill-days (Integer/parseInt (second args)))
     "add-indexes" (ingest/add-indexes)
-    "ingest-yesterday" (ingest/run-ingest (common/yesterday) (common/yesterday) false)
-    "ingest-range" (ingest/run-ingest (clj-time-format/parse common/ymd-format (second args))
-                                      (clj-time-format/parse common/ymd-format (nth args 2)) false)
-    "reingest-range" (ingest/run-ingest (clj-time-format/parse common/ymd-format (second args))
-                                        (clj-time-format/parse common/ymd-format (nth args 2)) true)))
+    "queue-continuous" (ingest/queue-continuous)
+    "bus-backfill-days" (ingest/bus-backfill-days (Integer/parseInt (second args)))
+    "add-indexes" (ingest/add-indexes)
+    (log/error "Didn't recognise command" (first args) ". Have another go.")))

@@ -3,11 +3,6 @@
             [event-data-query.common :as common]
             [clj-time.core :as clj-time]))
 
-(deftest parse-date-full
-  (testing "parse-date-full should parse both types of dates"
-    (is (= (clj-time/date-time 2017 4 4 5 56 53) (common/parse-date-full "2017-04-04T05:56:53.000Z")) "Can parse with milliseconds")
-    (is (= (clj-time/date-time 2017 4 4 5 56 53) (common/parse-date-full "2017-04-04T05:56:53Z")) "Can parse without milliseconds")))
-
 (deftest transform-for-index
   (testing "DOI fields should be associated with the Event when present."
     (let [input {"obj_id" "http://dx.doi.org/10.5555/12345678" ; old-style DOI supplied
@@ -22,7 +17,7 @@
                  "timestamp" "2017-04-04T05:57:19Z",
                  "evidence-record" "https://evidence.eventdata.crossref.org/evidence/20170404-twitter-66e922df-9754-45f7-886f-f7ddaa6ea8ba",
                  "relation_type_id" "discusses"
-                 "updated-date" "2018-03-04T05:56:53Z"}
+                 "updated_date" "2018-03-04T05:56:53Z"}
           processed (common/transform-for-index input)]
 
       (is (every? processed (keys input)) "All input fields should be present in output.")
@@ -32,7 +27,7 @@
       (is (= (processed "_obj_doi") "https://doi.org/10.5555/12345678") "Obj DOI prefix should be derived and normalized as special field")
       (is (= (processed "_occurred-date") (clj-time/date-time 2017 3 4 5 56 53)) "Occurred date should be parsed to date object as special field")
       (is (= (processed "_timestamp-date") (clj-time/date-time 2017 4 4 5 57 19)) "Timestamp date should be parsed to date object as special field")
-      (is (= (processed "_updated-date") (clj-time/date-time 2018 3 4 5 56 53)) "Optional updated date should be parsed to date object as special field")))
+      (is (= (processed "_updated_date") (clj-time/date-time 2018 3 4 5 56 53)) "Optional updated date should be parsed to date object as special field")))
 
   (testing "When subj and obj are not DOIs, should be passed through."
     (let [input {"obj_id" "http://example.com/obj_id"
@@ -56,7 +51,7 @@
       (is (nil? (processed "_obj_doi")) "No obj DOI when no obj DOI")
       (is (= (processed "_occurred-date") (clj-time/date-time 2017 4 4 5 56 53)) "Occurred date should be parsed to date object as special field")
       (is (= (processed "_timestamp-date") (clj-time/date-time 2017 3 4 5 57 19)) "Timestamp date should be parsed to date object as special field")
-      (is (nil? (processed "_updated-date")) "No parsed updated date when no input suppplied."))))
+      (is (nil? (processed "_updated_date")) "No parsed updated date when no input suppplied."))))
 
 
 (deftest start-of
