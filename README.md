@@ -91,3 +91,8 @@ Running within Crossref:
 
 
 
+## License
+
+Copyright © 2017 Crossref
+
+Distributed under the The MIT License (MIT).

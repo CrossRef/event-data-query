@@ -18,12 +18,15 @@
 
 (def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
 (def full-format-no-ms (:date-time-no-ms clj-time-format/formatters))
-
-(defn parse-date
+(def full-format (:date-time clj-time-format/formatters))
+        
+(defn parse-date   
   "Parse two kinds of dates."
   [date-str]
-  (clj-time-format/parse full-format-no-ms date-str))
-    
+  (try
+    (clj-time-format/parse full-format-no-ms date-str)
+    (catch IllegalArgumentException e   
+       (clj-time-format/parse full-format date-str))))
 
 (defn yesterday
   []
