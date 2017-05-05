@@ -30,7 +30,8 @@
            [monger.operators :as o]
            [monger.query :as q]
            [clojure.math.combinatorics :as combinatorics]
-           [robert.bruce :refer [try-try-again]])
+           [robert.bruce :refer [try-try-again]]
+           [clojure.walk :as walk])
   (:import [org.bson.types ObjectId]
            [com.mongodb DB WriteConcern])
   (:gen-class))
@@ -184,6 +185,7 @@
   (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
         config {:username (:activemq-username env) :password (:activemq-password env) :url (:activemq-url env) :queue-name (:activemq-queue env)}]
     (log/info "Starting to listening to queue with config" config)
-    (queue/process-queue config #(ingest-one db (common/transform-for-index %)))
+    ; The queue library kindly deserializes JSON back into objects, but keywor
+    (queue/process-queue config #(ingest-one db (common/transform-for-index (walk/stringify-keys %))))
     (log/error "Finished listening to queue.")))
 

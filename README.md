@@ -82,6 +82,7 @@ Running within Crossref:
 | `EVENT_BUS_BASE`          | Event Bus URL base. Optional.                                  |
 | `ARTIFACT_BASE`           | Public URL of Artifact registry. Optional.                     |
 | `JWT_TOKEN`               | JWT Token for authenticating with Bus. Optional.               |
+| `JWT_SECRETS`             | JWT Secrets for connecting to Status service. Optional.        |
 | `TERMS`                   | A Terms URL to be associated with each event. Optional.        |
 | `ACTIVEMQ_USERNAME`       | ActiveMQ credentials for ingestion queue.                      |
 | `ACTIVEMQ_PASSWORD`       | ActiveMQ credentials for ingestion queue.                      |
