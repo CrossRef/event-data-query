@@ -57,8 +57,8 @@
 
 (defn execute-query
   "Execute a query against the database."
-  [db query rows]
-    (let [cnt (mc/count db common/event-mongo-collection-name query)
+  [db query count-query rows]
+    (let [cnt (mc/count db common/event-mongo-collection-name count-query)
 
           ; Mongo ignores limit parmeter when it's zero, so don't run query in that case.
           results (if (zero? rows)
@@ -121,19 +121,28 @@
                       filters (split-filter (get-in ctx [:request :params "filter"]))
                       
                       filter-query (try (query/build-filter-query filters) (catch IllegalArgumentException ex :error))
-                      meta-query (try (query/build-meta-query (get-in ctx [:request :params])) (catch IllegalArgumentException ex :error))
                       
+                      ; We need to remove the cursor from the query that counts, otherwise we'll get remaining rather than total results.
+                      params (get-in ctx [:request :params])
+                      params-less-cursor (dissoc params "cursor")
+                      
+                      meta-query (try (query/build-meta-query params) (catch IllegalArgumentException ex :error))
+                      meta-query-less-cursor (try (query/build-meta-query params-less-cursor) (catch IllegalArgumentException ex :error))
+
                       malformed (:error (set [rows filter-query meta-query]))
-                      the-query (when-not malformed (query/and-queries filter-query meta-query))]
+
+                      the-query (when-not malformed (query/and-queries filter-query meta-query))
+                      count-query (when-not malformed (query/and-queries filter-query meta-query-less-cursor))]
 
                   (log/info "Execute query" the-query)
 
                   [malformed
                    {::rows rows
-                    ::query the-query}]))
+                    ::query the-query
+                    ::count-query count-query}]))
 
   :handle-ok (fn [ctx]
-               (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::rows ctx))
+               (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::count-query ctx) (::rows ctx))
                       exported-events (map export-event events)]
                 (when (:status-service env)
                   (status/send! "query" "serve" "event" (count events))
@@ -152,8 +161,11 @@
   
   :exists? (fn [ctx]
             (let [the-event (get-event @db id)
-                  deleted (= (get the-event :updated) "deleted")]
-              [(and the-event (not deleted)) {::event the-event}]))
+                  deleted (= (get the-event :updated) "deleted")
+                  ; User can request to show anyway
+                  include-deleted (= (get-in ctx [:request :params "include-deleted"] "true"))]
+              [(and the-event (or include-deleted
+                                  (not deleted))) {::event the-event}]))
 
   :handle-ok (fn [ctx]
               (when (:status-service env)
