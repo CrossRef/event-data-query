@@ -163,7 +163,7 @@
             (let [the-event (get-event @db id)
                   deleted (= (get the-event :updated) "deleted")
                   ; User can request to show anyway
-                  include-deleted (= (get-in ctx [:request :params "include-deleted"] "true"))]
+                  include-deleted (= (get-in ctx [:request :params "include-deleted"]) "true")]
               [(and the-event (or include-deleted
                                   (not deleted))) {::event the-event}]))
 
