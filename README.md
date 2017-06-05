@@ -57,7 +57,7 @@ In all cases:
 
 | Environment variable | Description              |
 |----------------------|--------------------------|
-| `MONGODB_URI`        | Connection URI for Mongo |
+| `MONGODB_URI`        | Connection URI for Mongo e.g. `mongo://localhost:27017/mydatabase` |
 
 Running server:
 
