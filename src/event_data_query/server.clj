@@ -2,6 +2,7 @@
  (:require  [event-data-query.common :as common]
             [event-data-common.status :as status]
             [event-data-query.ingest :as ingest]
+            [event-data-query.parameters :as parameters]
             [event-data-query.query :as query]
             [event-data-common.jwt :as jwt]
             [config.core :refer [env]]
@@ -77,27 +78,18 @@
   (when-let [event (mc/find-one-as-map db common/event-mongo-collection-name {:id id})]
     (apply dissoc event common/special-fields)))
 
-(defn split-filter
-  "Split a comma and colon separated filter into a map, or :error."
-  [filter-str]
-  (when filter-str
-    (try
-      (into {} (map (fn [pair] (let [[k v] (clojure.string/split pair #":")] [(keyword k) v])) (clojure.string/split filter-str #",")))
-      (catch IllegalArgumentException e :error))))
-
 (defn try-parse-int
+  "Parse integer, if present, or throw."
   [value]
   (when value
-    (try (Integer/parseInt value)
-      (catch IllegalArgumentException ex :error))))
+    (Integer/parseInt value)))
 
 (defn try-parse-ymd-date
-  "Parse date when present, or :error on failure."
+  "Parse date when present or throw."
   [date-str]
   (when date-str
-    (try
-      (clj-time-format/parse common/ymd-format date-str)
-      (catch Exception _ :error))))
+    (clj-time-format/parse common/ymd-format date-str)))
+
 
 (defn export-event
   "Transform an event to send out."
@@ -114,32 +106,37 @@
   :available-media-types ["application/json"]
   
   :malformed? (fn [ctx]
-                (let [rows (or
-                             (try-parse-int (get-in ctx [:request :params "rows"]))
-                             common/default-page-size)
+                (try
+                  (let [rows (or
+                               (try-parse-int (get-in ctx [:request :params "rows"]))
+                               common/default-page-size)
 
-                      filters (split-filter (get-in ctx [:request :params "filter"]))
-                      
-                      filter-query (try (query/build-filter-query filters) (catch IllegalArgumentException ex :error))
-                      
-                      ; We need to remove the cursor from the query that counts, otherwise we'll get remaining rather than total results.
-                      params (get-in ctx [:request :params])
-                      params-less-cursor (dissoc params "cursor")
-                      
-                      meta-query (try (query/build-meta-query params) (catch IllegalArgumentException ex :error))
-                      meta-query-less-cursor (try (query/build-meta-query params-less-cursor) (catch IllegalArgumentException ex :error))
+                        filters (parameters/parse (get-in ctx [:request :params "filter"]) keyword)
+                        
+                        filter-query (query/build-filter-query filters)
+                        
+                        ; We need to remove the cursor from the query that counts, otherwise we'll get remaining rather than total results.
+                        params (get-in ctx [:request :params])
+                        params-less-cursor (dissoc params "cursor")
+                        
+                        ; throws
+                        meta-query (query/build-meta-query params)
 
-                      malformed (:error (set [rows filter-query meta-query]))
+                        ; throws
+                        meta-query-less-cursor (query/build-meta-query params-less-cursor)
 
-                      the-query (when-not malformed (query/and-queries filter-query meta-query))
-                      count-query (when-not malformed (query/and-queries filter-query meta-query-less-cursor))]
+                        the-query (query/and-queries filter-query meta-query)
+                        count-query (query/and-queries filter-query meta-query-less-cursor)]
 
-                  (log/info "Execute query" the-query)
+                    (log/info "Execute query" the-query)
 
-                  [malformed
-                   {::rows rows
-                    ::query the-query
-                    ::count-query count-query}]))
+                    [false
+                     {::rows rows
+                      ::query the-query
+                      ::count-query count-query}])
+
+                  (catch IllegalArgumentException ex
+                    [true {::error-message (.getMessage ex)}])))
 
   :handle-ok (fn [ctx]
                (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::count-query ctx) (::rows ctx))
@@ -153,7 +150,14 @@
                    :next-cursor next-cursor
                    :total-results total-results
                    :items-per-page (::rows ctx)
-                   :events exported-events}})))
+                   :events exported-events}}))
+
+  ; Content negotiation doesn't work for this handler.
+  ; https://github.com/clojure-liberator/liberator/issues/94
+  :handle-malformed (fn [ctx]
+                      (json/write-str {:status "error"
+                       :message-type "error"
+                       :message (::error-message ctx)})))
 
 (defresource event
   [id]

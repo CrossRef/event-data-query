@@ -9,16 +9,10 @@
     (is (= (server/try-parse-ymd-date "2017-04-04") (clj-time/date-time 2017 4 4)) "Should parse valid")
     (is (= (server/try-parse-ymd-date "INVALID") :error) "Should return :error on invalid")))
 
-(deftest split-filter
-  (testing "split-filter can split valid strings into keyword-keyed maps"
-    (is (= (server/split-filter "one:two,three:four")
-           {:one "two" :three "four"}))))
-
 (deftest try-parse-int
   (testing "try-parse-int can parse valid integer"
     (= 12345 (server/try-parse-int "1234"))
     (= :error (server/try-parse-int "ONE TWO THREE FOUR"))))
-
 
 (deftest export-event
   (testing "export-event adds extra fields"

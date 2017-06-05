@@ -92,6 +92,18 @@
                    {:obj.alternative-id "123456"}]})
           "looking in subj or obj alternative-id field.")))
 
+(deftest q-subj.url
+  (testing "q-subj.url creates query for subj.url field, when present"
+    (is (= (query/q-subj-url {:subj.url "http://example.com/123"})
+           {:subj.url "http://example.com/123"})
+          "looking in subj.url field.")))
+
+(deftest q-obj.url
+  (testing "q-sub.url creates query for subj.url field, when present"
+    (is (= (query/q-obj-url {:obj.url "http://example.com/123"})
+           {:obj.url "http://example.com/123"})
+          "looking in subj.url field.")))
+
 (deftest build-filter-query
   (testing "build-filter-query combines output of all clauses"
     (let [input {:from-occurred-date "2011-01-01"

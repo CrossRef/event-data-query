@@ -74,36 +74,37 @@
       acc)))
 
 (defn parse
-  [input-str]
-  (let [tokens (scan input-str)]
-    ; Any of these will be nil at destructuring time.
-    ; So at the end of iteration, k-typ will be nil.
-    ; s-typ will also be nil if there's no terminating separator.
-    (loop [[[k-typ k-val] [d-typ d-val] [v-typ v-val] [s-typ s-val] & rest-tokens] tokens
-           acc {}]
+  "Parse input string into a 1-depth map. Optional key-fn can be e.g. keyword"
+  ([input-str] (parse input-str identity))
+  ([input-str key-fn]
+    (let [tokens (scan input-str)]
+      ; Any of these will be nil at destructuring time.
+      ; So at the end of iteration, k-typ will be nil.
+      ; s-typ will also be nil if there's no terminating separator.
+      (loop [[[k-typ k-val] [d-typ d-val] [v-typ v-val] [s-typ s-val] & rest-tokens] tokens
+             acc {}]
 
-      (if (nil? k-typ)
-        acc
-        (do 
+        (if (nil? k-typ)
+          acc
+          (do 
 
-      (when-not (= :ident k-typ)
-        (throw (new IllegalArgumentException (str "Expected key but got" v-val))))
+        (when-not (= :ident k-typ)
+          (throw (new IllegalArgumentException (str "Expected key but got" v-val))))
 
-      (when-not (= :delimiter d-typ)
-        (throw (new IllegalArgumentException (str "Expected delimiter ':' but got:" d-val))))
+        (when-not (= :delimiter d-typ)
+          (throw (new IllegalArgumentException (str "Expected delimiter ':' but got:" d-val))))
 
-      (when-not (= :ident v-typ)
-        (throw (new IllegalArgumentException (str "Expected value but got:" d-val))))
+        (when-not (= :ident v-typ)
+          (throw (new IllegalArgumentException (str "Expected value but got:" d-val))))
 
-      (when (and s-typ (not= :separator s-typ))
-        (throw (new IllegalArgumentException (str "Expected separator ',' but got:" s-val))))
+        (when (and s-typ (not= :separator s-typ))
+          (throw (new IllegalArgumentException (str "Expected separator ',' but got:" s-val))))
 
-      (let [k-str-val (apply str k-val)
-            v-str-val (apply str v-val)]
+        (let [k-str-val (key-fn (apply str k-val))
+              v-str-val (apply str v-val)]
 
-      (when (acc k-str-val)
-        (throw (new IllegalArgumentException (str "Got duplicate key:" k-str-val))))
+        (when (acc k-str-val)
+          (throw (new IllegalArgumentException (str "Got duplicate key:" k-str-val))))
 
-      (recur rest-tokens (assoc acc k-str-val v-str-val))))))))
+        (recur rest-tokens (assoc acc k-str-val v-str-val)))))))))
 
-    

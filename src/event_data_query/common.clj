@@ -71,6 +71,8 @@
    ["updated" false]
    ["subj.alternative-id" false]
    ["obj.alternative-id" false]
+   ["subj.url" false]
+   ["obj.url" false]
    ["relation_type_id" false]
    ["subj_id" false]
    ["obj_id" false]

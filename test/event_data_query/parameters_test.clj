@@ -105,3 +105,16 @@
     (is (thrown? IllegalArgumentException (parameters/parse "12:34,56:78,12:34")) "Duplicate keys should be handled.")))
 
 
+(deftest parse-keyfn
+  (testing "a key-fn can be passed"
+    (is (= (parameters/parse "12:34") {"12" "34"}) "Default should produce string keys")
+    (is (= (parameters/parse "12:34" identity) {"12" "34"}) "identity should produce string keys")
+    (is (= (parameters/parse "12:34" keyword) {:12 "34"}) "keyword should produce keyword keys")
+    (is (= (parameters/parse "12:34" (constantly "turtles")) {"turtles" "34"}) "any applicable function should work")
+    (is (thrown? IllegalArgumentException
+      (parameters/parse "12:34,56:78" (constantly "turtles")) {"turtles" "34"}) "output of function used when validating uniqueness of keys")))
+
+
+
+
+

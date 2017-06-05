@@ -64,6 +64,16 @@
     {o/$or [{:subj.alternative-id id}
             {:obj.alternative-id id}]}))
 
+(defn q-subj-url
+  [params]
+  (when-let [id (:subj.url params)]
+    {:subj.url id}))
+
+(defn q-obj-url
+  [params]
+  (when-let [id (:obj.url params)]
+    {:obj.url id}))
+
 (def query-processors
   (juxt q-from-occurred-date
         q-until-occurred-date
@@ -73,7 +83,9 @@
         q-prefix
         q-source
         q-alternative-id
-        q-relation))
+        q-relation
+        q-subj-url
+        q-obj-url))
 
 (defn build-filter-query
   "Transform filter params dictionary into mongo query."
