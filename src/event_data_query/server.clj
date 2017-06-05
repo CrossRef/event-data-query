@@ -111,7 +111,7 @@
                                (try-parse-int (get-in ctx [:request :params "rows"]))
                                common/default-page-size)
 
-                        filters (parameters/parse (get-in ctx [:request :params "filter"]) keyword)
+                        filters (when-let [params (get-in ctx [:request :params "filter"])] (parameters/parse params keyword))
                         
                         filter-query (query/build-filter-query filters)
                         
