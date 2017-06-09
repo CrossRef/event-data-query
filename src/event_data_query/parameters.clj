@@ -1,6 +1,7 @@
 (ns event-data-query.parameters
   "Parse filter parameters from query strings in key:value,key:value format into a map. Allow quoted keys or values."
-  (:require [clojure.set :refer [union]]))
+  (:require [clojure.set :refer [union]]
+            [clojure.tools.logging :as log]))
 
 (def delimiters #{\:})
 (def quotes #{\' \"})
@@ -20,7 +21,6 @@
 (defn read-quoted-ident
   [[delimiter & input]]
   (let [escapable #{\\ delimiter}]
-    ; (prn "escapable" escapable)
     (loop [acc []
            escape false
            c (first input)
@@ -77,6 +77,7 @@
   "Parse input string into a 1-depth map. Optional key-fn can be e.g. keyword"
   ([input-str] (parse input-str identity))
   ([input-str key-fn]
+    (log/info "Parse" input-str)
     (let [tokens (scan input-str)]
       ; Any of these will be nil at destructuring time.
       ; So at the end of iteration, k-typ will be nil.

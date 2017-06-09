@@ -2,11 +2,11 @@
 
 <img src="doc/logo.png" align="right" style="float: right">
 
-Query API service for Event Data. Ingests from another source (e.g. another Query API, Event Bus or archive) and allows a number of queries to be run. Backed by MongoDB.
+Query API service for Event Data. Ingests from another source (e.g. another Query API, Event Bus or archive) and allows a number of queries to be run. Backed by ElasticSearch.
 
 This codebase is used internally in Crossref Event Data, but you can easily run it to replicate Event Data or a subset of it, to your own database.
 
-Provided as a Docker image for deployment. Docker Compose is used for testing. If you're on a Mac, you may want to run this outside Docker because MongoDB's mmaped files aren't compatible with the Docker host volume mapping (see [here](https://hub.docker.com/_/mongo/)).
+Provided as a Docker image for deployment. Docker Compose is used for testing. 
 
 ## Usage as a replica
 
@@ -47,6 +47,10 @@ Server
 
     docker-compose -f docker-compose.yml run -w /usr/src/app --service-ports test lein run server
 
+REPL
+
+    docker-compose -f docker-compose.yml run -w /usr/src/app --service-ports test /bin/bash -c "stty sane && lein repl"
+
 To run tests
 
     docker-compose -f docker-compose.yml run -w /usr/src/app test lein test
@@ -57,7 +61,7 @@ In all cases:
 
 | Environment variable | Description              |
 |----------------------|--------------------------|
-| `MONGODB_URI`        | Connection URI for Mongo e.g. `mongo://localhost:27017/mydatabase` |
+| `ELASTIC_URI`        | Connection URI for ElasticSearch e.g. `http://127.0.0.1:9200` |
 
 Running server:
 

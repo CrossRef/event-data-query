@@ -20,7 +20,9 @@
                  [org.slf4j/slf4j-simple "1.7.21"]
                  [clojurewerkz/quartzite "2.0.0"]
                  [cheshire "5.7.0"]
-                 [com.novemberain/monger "3.1.0"]
+                 ; TODO
+                 ; [com.novemberain/monger "3.1.0"]
+                 [cc.qbits/spandex "0.4.2"]
                  [compojure "1.5.1"]
                  [org.eclipse.jetty/jetty-server "9.4.0.M0"]
                  [liberator "0.14.1"]

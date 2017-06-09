@@ -2,6 +2,7 @@
  (:require  [event-data-query.common :as common]
             [event-data-common.status :as status]
             [event-data-query.ingest :as ingest]
+            [event-data-query.elastic :as elastic]
             [event-data-query.parameters :as parameters]
             [event-data-query.query :as query]
             [event-data-common.jwt :as jwt]
@@ -23,11 +24,6 @@
             [clojurewerkz.quartzite.scheduler :as qs]
             [clojurewerkz.quartzite.schedule.cron :as qc]
 
-            [monger.core :as mg]
-            [monger.collection :as mc]
-            [monger.query :as q]
-            ; Not directly used, but converts clj-time dates in the background.
-            [monger.joda-time]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
 
@@ -43,40 +39,13 @@
             [liberator.representation :as representation]
             [ring.util.response :as ring-response]
             [overtone.at-at :as at-at])
-
-  (:import [org.bson.types ObjectId]
-           [com.mongodb DB WriteConcern])
   (:gen-class))
-
-(def db (delay (:db (mg/connect-via-uri (:mongodb-uri env)))))
 
 (def event-data-homepage "https://www.crossref.org/services/event-data")
 
 (def terms-url
   "URL of terms and conditions, or nil."
   (:terms env))
-
-(defn execute-query
-  "Execute a query against the database."
-  [db query count-query rows]
-    (let [cnt (mc/count db common/event-mongo-collection-name count-query)
-
-          ; Mongo ignores limit parmeter when it's zero, so don't run query in that case.
-          results (if (zero? rows)
-                    []
-                    (q/with-collection db common/event-mongo-collection-name
-                      (q/find query)
-                      (q/sort (array-map :_id 1))
-                      (q/limit rows)))
-          events (map #(apply dissoc % common/special-fields) results)
-
-          next-cursor (-> results last :_id)]          
-      [events next-cursor cnt]))
-
-(defn get-event
-  [db id]
-  (when-let [event (mc/find-one-as-map db common/event-mongo-collection-name {:id id})]
-    (apply dissoc event common/special-fields)))
 
 (defn try-parse-int
   "Parse integer, if present, or throw."
@@ -90,17 +59,6 @@
   (when date-str
     (clj-time-format/parse common/ymd-format date-str)))
 
-
-(defn export-event
-  "Transform an event to send out."
-  [event]
-  (if terms-url (assoc event "terms" terms-url) event))
-
-; For batches of > 10, this is 4x faster than individual checks.
-(defn alternative-ids-exist
-  [db alternative-ids]
-  (map #(-> % :subj :alternative-id) (mc/find-maps db common/event-mongo-collection-name {:subj.alternative-id {"$in" alternative-ids}} {:subj.alternative-id 1})))
-
 (defresource events
   []
   :available-media-types ["application/json"]
@@ -113,44 +71,45 @@
 
                         filters (when-let [params (get-in ctx [:request :params "filter"])] (parameters/parse params keyword))
                         
-                        filter-query (query/build-filter-query filters)
-                        
-                        ; We need to remove the cursor from the query that counts, otherwise we'll get remaining rather than total results.
-                        params (get-in ctx [:request :params])
-                        params-less-cursor (dissoc params "cursor")
-                        
-                        ; throws
-                        meta-query (query/build-meta-query params)
+                        query (query/build-filter-query filters)
 
-                        ; throws
-                        meta-query-less-cursor (query/build-meta-query params-less-cursor)
+                        ; Get the whole event that is represented by the cursor ID. If supplied.
+                        cursor-event (when-let [event-id (get-in ctx [:request :params "cursor"])]
+                                       (let [event (elastic/get-by-id-full event-id)]
+                                        (when-not event
+                                          (throw (new IllegalArgumentException "Invalid cursor supplied.")))
+                                        event))]
 
-                        the-query (query/and-queries filter-query meta-query)
-                        count-query (query/and-queries filter-query meta-query-less-cursor)]
-
-                    (log/info "Execute query" the-query)
+                    (log/info "Got filters" filters)
+                    (log/info "Execute query" query)
 
                     [false
                      {::rows rows
-                      ::query the-query
-                      ::count-query count-query}])
+                      ::query query
+                      ::cursor-event cursor-event}])
 
                   (catch IllegalArgumentException ex
                     [true {::error-message (.getMessage ex)}])))
 
   :handle-ok (fn [ctx]
-               (let [[events next-cursor total-results] (execute-query @db (::query ctx) (::count-query ctx) (::rows ctx))
-                      exported-events (map export-event events)]
+               (let [events (elastic/search-query (::query ctx)
+                                                  (::rows ctx)
+                                                  (-> ctx ::cursor-event :timestamp)
+                                                  (-> ctx ::cursor-event :id))
+                     total-results (elastic/count-query (::query ctx))
+                     next-cursor-id (-> events last :id)]
+                
                 (when (:status-service env)
                   (status/send! "query" "serve" "event" (count events))
                   (status/send! "query" "serve" "request" 1))
+
                 {:status "ok"
                  :message-type "event-list"
                  :message {
-                   :next-cursor next-cursor
+                   :next-cursor next-cursor-id
                    :total-results total-results
                    :items-per-page (::rows ctx)
-                   :events exported-events}}))
+                   :events events}}))
 
   ; Content negotiation doesn't work for this handler.
   ; https://github.com/clojure-liberator/liberator/issues/94
@@ -164,7 +123,7 @@
   :available-media-types ["application/json"]
   
   :exists? (fn [ctx]
-            (let [the-event (get-event @db id)
+            (let [the-event (elastic/get-by-id id)
                   deleted (= (get the-event :updated) "deleted")
                   ; User can request to show anyway
                   include-deleted (= (get-in ctx [:request :params "include-deleted"]) "true")]
@@ -178,11 +137,19 @@
               {:status "ok"
                :message-type "event"
                :message {
-                 :event (export-event (::event ctx))}})
+                 :event (::event ctx)}})
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
 
 ; Return all anternative-ids that match an alternative-id of a subject in the index.
+; TODO is this required?
+; For batches of > 10, this is 4x faster than individual checks.
+
+(defn alternative-ids-exist
+  [alternative-ids]
+  ; (map #(-> % :subj :alternative-id) (mc/find-maps db common/event-mongo-collection-name {:subj.alternative-id {"$in" alternative-ids}} {:subj.alternative-id 1})))
+)
+
 (defresource alternative-ids-check
   []
   :allowed-methods [:get]
@@ -191,7 +158,7 @@
                (let [ids (.split
                          (get-in ctx [:request :params "ids"] "")
                         ",")
-                    matches (alternative-ids-exist @db ids)]
+                    matches (alternative-ids-exist ids)]
                 {:alternative-ids matches})))
 
 (defresource home
@@ -205,7 +172,8 @@
   (GET "/" [] (home))
   (GET "/events" [] (events))
   (GET "/events/:id" [id] (event id))
-  (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
+  ; (GET "/special/alternative-ids-check" [] (alternative-ids-check))
+  )
 
 (defn wrap-cors [handler]
   (fn [request]
@@ -219,9 +187,7 @@
      (middleware-content-type/wrap-content-type)
      (wrap-cors)))
 
-
 (def schedule-pool (at-at/mk-pool))
-
 
 (defn run []
   (let [port (Integer/parseInt (:port env))]
@@ -230,3 +196,4 @@
 
     (log/info "Start server on " port)
     (server/run-server app {:port port})))
+()

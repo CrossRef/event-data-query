@@ -1,5 +1,6 @@
 (ns event-data-query.ingest
  (:require [event-data-query.common :as common]
+           [event-data-query.elastic :as elastic]
            [event-data-common.queue :as queue]
            [event-data-common.artifact :as artifact]
            [cheshire.core :as cheshire]
@@ -23,19 +24,10 @@
            [event-data-common.artifact :as artifact]
            [liberator.core :refer [defresource]]
            [liberator.representation :as representation]
-           [monger.collection :as mc]
-           [monger.core :as mg]
-           ; Not directly used, but converts clj-time dates in the background.
-           [monger.joda-time]
-           [monger.operators :as o]
-           [monger.query :as q]
            [clojure.math.combinatorics :as combinatorics]
            [robert.bruce :refer [try-try-again]]
            [clojure.walk :as walk])
-  (:import [org.bson.types ObjectId]
-           [com.mongodb DB WriteConcern])
   (:gen-class))
-
 
 (defn retrieve-source-whitelist
   "Retrieve set of source IDs according to config, or nil if not configured."
@@ -50,27 +42,10 @@
 
 (defn ingest-one
   "Ingest one event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
-  [db transformed-event]
+  [event]
   (when (or (nil? @source-whitelist)
-            (@source-whitelist (get transformed-event "source_id")))
-    (mc/update-by-id db common/event-mongo-collection-name (get transformed-event "id") transformed-event {:upsert true})))
-
-(defn add-indexes 
-  "Add indexes to database if not exist"
-  []
-  (log/info "Adding indexes...")
-  (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
-        counter (atom 0)
-        total-fields (+ (count common/special-fields) (count common/extra-index-fields))]
-    (doseq [field common/special-fields]
-      (swap! counter inc)
-      (log/info "Adding" field " " @counter "/" total-fields)
-      (mc/ensure-index db common/event-mongo-collection-name {field 1}))
-
-    (doseq [[field unique] common/extra-index-fields]
-      (swap! counter inc)
-      (log/info "Adding" field " " @counter "/" total-fields)
-      (mc/ensure-index db common/event-mongo-collection-name {field 1} {:unique unique}))))
+            (@source-whitelist (get event "source_id")))
+    (elastic/insert-event event)))
 
 (def replica-collected-url-default
   "https://query.eventdata.crossref.org/events?filter=from-collected-date:%1$s&cursor=%2$s&rows=10000")
@@ -97,25 +72,23 @@
   "Replicate the last n days from the upstream Query API.
    Retrieves both Events for that date and Events updated since that date."
   [num-days]
-  (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
-        date (clj-time/minus (clj-time/now) (clj-time/days num-days))
+  (let [date (clj-time/minus (clj-time/now) (clj-time/days num-days))
         date-str (clj-time-format/unparse common/ymd-format date)
         counter (atom 0)]
     
     (log/info "Replicating occurred Events from" date-str)
     (doseq [event (fetch-query-api (:replica-collected-url env replica-collected-url-default) date-str)]
-      (ingest-one db(common/transform-for-index event))
+      (ingest-one event)
       (swap! counter inc)
       (when (zero? (mod @counter 1000))
                     (log/info "Ingested" @counter "this session, currently Downloading" date)))
 
     (log/info "Replicating updated Events from" date-str)
     (doseq [event (fetch-query-api (:replica-updated-url env replica-collected-url-default) date-str)]
-      (ingest-one db (common/transform-for-index event))
+      (ingest-one event)
       (swap! counter inc)
       (when (zero? (mod @counter 1000))
                     (log/info "Ingested" @counter "this session, currently Downloading" date)))
-
     (log/info "Done replicating.")))
 
 (defjob replicate-yesterday-job
@@ -147,9 +120,7 @@
 
 (defn bus-backfill-days
   [num-days]
-  (mg/set-default-write-concern! WriteConcern/ACKNOWLEDGED)
-  (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
-        end-date (clj-time/now)
+  (let [end-date (clj-time/now)
         start-date (clj-time/minus end-date (clj-time/days num-days))
         date-range (take-while #(clj-time/before? % end-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
         total-count (atom 0)]
@@ -167,25 +138,21 @@
                     events (get stream "events")]
                 (log/info "Inserting...")
                 (doseq [event events]
-                  (ingest-one db (common/transform-for-index event))
+                  (ingest-one event)
                   (swap! total-count inc)
                   (when (zero? (mod @total-count 1000))
                     (log/info "Ingested" @total-count "this session, currently Downloading" date))))))))))
 
         (log/info "Finished ingesting dates. Set indexes...")
-        
-        (add-indexes)
-
+      
         (log/info "Done backfill job!"))
 
 (defn queue-continuous
   "Ingest Events from an ActiveMQ Queue. Block."
   []
-  (mg/set-default-write-concern! WriteConcern/ACKNOWLEDGED)
-  (let [{:keys [conn db]} (mg/connect-via-uri (:mongodb-uri env))
-        config {:username (:activemq-username env) :password (:activemq-password env) :url (:activemq-url env) :queue-name (:activemq-queue env)}]
+  (let [config {:username (:activemq-username env) :password (:activemq-password env) :url (:activemq-url env) :queue-name (:activemq-queue env)}]
     (log/info "Starting to listening to queue with config" config)
     ; The queue library kindly deserializes JSON back into objects, but keywor
-    (queue/process-queue config #(ingest-one db (common/transform-for-index (walk/stringify-keys %))))
+    (queue/process-queue config #(ingest-one (walk/stringify-keys %)))
     (log/error "Finished listening to queue.")))
 
