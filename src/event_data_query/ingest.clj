@@ -135,7 +135,7 @@
 
 (defn bus-backfill-days
   [num-days]
-  (let [prefixes (first (event-bus-prefixes-length event-bus-archive-prefix-length)) ; TODO
+  (let [prefixes (event-bus-prefixes-length event-bus-archive-prefix-length)
         end-date (clj-time/now)
         start-date (clj-time/minus end-date (clj-time/days num-days))
         date-range (take-while #(clj-time/before? % end-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
