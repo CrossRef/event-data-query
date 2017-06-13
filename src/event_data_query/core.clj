@@ -2,7 +2,6 @@
   (:require [event-data-query.ingest :as ingest]
             [event-data-query.elastic :as elastic]
             [event-data-query.server :as server]
-            [event-data-query.common :as common]
             [clj-time.format :as clj-time-format]
             [clojure.tools.logging :as log])
   (:gen-class))

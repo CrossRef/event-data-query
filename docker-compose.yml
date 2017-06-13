@@ -1,34 +1,35 @@
 version: '2'
+
+volumes:
+  esdata1:
+    driver: local
+
 services:
-
-  redis:
-    image: redis
-
-  qcstatus:
-    image: crossref/event-data-status:0.1.2
-    expose:
-     - "8003"
-    ports:
-     - "8003:8003"
-    depends_on:
-     - redis
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
+    container_name: elasticsearch
     environment:
-     - REDIS_HOST=redis
-     - REDIS_PORT=6379
-     - REDIS_DB=0
-     - PORT=8003
-     - JWT_SECRETS=TEST,TEST2
-    command: "lein run"
-
-  mongo:
-    image: mongo
-    expose: [27017]
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - http.host=0.0.0.0
+      # - transport.host=127.0.0.1
+      - transport.host=elasticsearch
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 1g
+    volumes:
+      - esdata1:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
 
   test:
     depends_on:
-     - redis
-     - qcstatus
-     - mongo
+     - elasticsearch
     build: .
     ports:
      - '8100:8100'
@@ -38,12 +39,10 @@ services:
     environment:
      - EVENT_BUS_BASE=http://138.201.202.133:8002
      - ARTIFACT_BASE=http://event-data-artifact-prod.s3.amazonaws.com
-     - STATUS_SERVICE=qcstatus
      - SOURCE_QUERY=https://bus.eventdata.crossref.org/events/archive/%s
      - PORT=8100
      - JWT_SECRETS=TEST,TEST2
-     - STATUS_SERVICE=http://qcstatus:8003
-     - MONGODB_URI=mongodb://mongo/events
      - WHITELIST_OVERRIDE=true
      - TERMS=https://doi.org/10.13003/CED-terms-of-use
+    command: "lein run server"
 

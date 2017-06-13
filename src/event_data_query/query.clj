@@ -1,27 +1,75 @@
 (ns event-data-query.query
-  (:require [event-data-query.common :as common]
+  (:require [clj-time.core :as clj-time]
             [clj-time.coerce :as coerce]
-            [crossref.util.doi :as cr-doi]))
+            [clj-time.format :as clj-time-format]
+            [crossref.util.doi :as cr-doi]
+            [slingshot.slingshot :refer [throw+]]))
+
+(def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
+
+(defn start-of [date-str]
+  (let [parsed (clj-time-format/parse ymd-format date-str)]
+    (clj-time/date-time (clj-time/year parsed) (clj-time/month parsed) (clj-time/day parsed))))
+
+(defn end-of [date-str]
+  (let [parsed (clj-time/plus (clj-time-format/parse ymd-format date-str) (clj-time/days 1))]
+    (clj-time/date-time (clj-time/year parsed) (clj-time/month parsed) (clj-time/day parsed))))
+
 
 (defn q-from-occurred-date
   [params]
-  (when-let [date (:from-occurred-date params)]
-    {:range {:occurred {:gte (coerce/to-long (common/start-of date))}}}))
+  (when-let [date-str (:from-occurred-date params)]
+    (try
+      {:range {:occurred {:gte (coerce/to-long (start-of date-str))}}}
+    (catch IllegalArgumentException _
+      (throw+ {:type :query-format-error
+               :subtype :invalid-date
+               :message (str "Date format suplied to from-occurred-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
 
 (defn q-until-occurred-date
   [params]
-  (when-let [date (:until-occurred-date params)]
-    {:range {:occurred {:lt (coerce/to-long (common/end-of date))}}}))
+  (when-let [date-str (:until-occurred-date params)]
+    (try
+      {:range {:occurred {:lt (coerce/to-long (end-of date-str))}}}
+    (catch IllegalArgumentException _
+      (throw+ {:type :query-format-error
+               :subtype :invalid-date
+               :message (str "Date format suplied to until-occurred-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
 
 (defn q-from-collected-date
   [params]
-  (when-let [date (:from-collected-date params)]
-    {:range {:timestamp {:lt (coerce/to-long (common/start-of date))}}}))
+  (when-let [date-str (:from-collected-date params)]
+    (try
+      {:range {:timestamp {:lt (coerce/to-long (start-of date-str))}}}
+    (catch IllegalArgumentException _
+      (throw+ {:type :query-format-error
+               :subtype :invalid-date
+               :message (str "Date format suplied to from-collected-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
 
 (defn q-until-collected-date
   [params]
-  (when-let [date (:until-collected-date params)] 
-    {:range {:timestamp {:lt (coerce/to-long (common/end-of date))}}}))
+  (when-let [date-str (:until-collected-date params)] 
+    (try
+      {:range {:timestamp {:lt (coerce/to-long (end-of date-str))}}}
+    (catch IllegalArgumentException _
+      (throw+ {:type :query-format-error
+               :subtype :invalid-date
+               :message (str "Date format suplied to until-collected-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
+
+; The from-updated-date comes from a separate query parameter but is merged in the handler in server.
+(defn q-from-updated-date
+  [params]
+  ; Don't serve up deleted content unless we're showing updates.
+  (if-let [date-str (:from-updated-date params)]
+    (try
+      {:range-date {:updated-date {:lt (coerce/to-long (start-of date-str))}}}
+      (catch IllegalArgumentException _
+      (throw+ {:type :query-format-error
+               :subtype :invalid-date
+               :message (str "Date format suplied to from-updated-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))
+      {:bool {:must-not {:term {:updated "deleted"}}}}))
+  
+
 
 ; subj_id and obj_id
 
@@ -108,28 +156,41 @@
   (if-let [source (:source params)]
     {:term {:source source}}))
 
-(def query-processors
-  (juxt 
-    q-from-occurred-date
-    q-until-occurred-date
-    q-from-collected-date
-    q-until-collected-date
-    q-subj-id
-    q-obj-id
-    q-subj-id-prefix
-    q-obj-id-prefix
-    q-subj-id-domain
-    q-obj-id-domain
-    q-subj-url
-    q-obj-url
-    q-subj-url-domain
-    q-obj-url-domain
-    q-subj-alternative-id
-    q-obj-alternative-id
-    q-relation
-    q-source))
+(def filters
+  "Map of input parameter to function that parses it out."
+  {:from-occurred-date q-from-occurred-date
+   :until-occurred-date q-until-occurred-date
+   :from-collected-date q-from-collected-date
+   :until-collected-date q-until-collected-date
+   :from-updated-date q-from-updated-date
+   :subj-id q-subj-id
+   :obj-id q-obj-id
+   :subj-id.prefix q-subj-id-prefix
+   :obj-id.prefix q-obj-id-prefix
+   :subj-id.domain q-subj-id-domain
+   :obj-id.domain q-obj-id-domain
+   :subj.url q-subj-url
+   :obj.url q-obj-url
+   :subj.url.domain q-subj-url-domain
+   :obj.url.domain q-obj-url-domain
+   :subj.alternative-id q-subj-alternative-id
+   :obj.alternative-id q-obj-alternative-id
+   :relation q-relation
+   :source q-source}) 
+
+(def query-process-fns
+  (apply juxt (vals filters)))
+
+(defn validate-filter-keys
+  "Validate that all filter keys are recognised. Return nil or throw exception for first error."
+  [params]
+  (when-let [unrecognised (first (clojure.set/difference (set (keys params)) (set (keys filters))))]
+    (throw+ {:type :query-format-error
+             :subtype :key
+             :message (str "Didn't recognise filter parameter: " unrecognised ". Available filters: " (clojure.string/join (keys filters) ","))})))
 
 (defn build-filter-query
-  "Transform filter params dictionary into mongo query."
+  "Transform filter params dictionary into ElasticSearch query."
   [params]
-  {:bool {:filter (remove nil? (query-processors params))}})
+  {:bool {:filter (remove nil? (query-process-fns params))}})
+

@@ -1,6 +1,5 @@
 (ns event-data-query.server
- (:require  [event-data-query.common :as common]
-            [event-data-common.status :as status]
+ (:require  [event-data-common.status :as status]
             [event-data-query.ingest :as ingest]
             [event-data-query.elastic :as elastic]
             [event-data-query.parameters :as parameters]
@@ -53,11 +52,12 @@
   (when value
     (Integer/parseInt value)))
 
-(defn try-parse-ymd-date
-  "Parse date when present or throw."
-  [date-str]
-  (when date-str
-    (clj-time-format/parse common/ymd-format date-str)))
+(defn export-event
+  "Transform an event to send out."
+  [event]
+  (if terms-url (assoc event "terms" terms-url) event))
+
+(def default-page-size 1000)
 
 (defresource events
   []
@@ -67,11 +67,17 @@
                 (try
                   (let [rows (or
                                (try-parse-int (get-in ctx [:request :params "rows"]))
-                               common/default-page-size)
+                               default-page-size)
 
                         filters (when-let [params (get-in ctx [:request :params "filter"])] (parameters/parse params keyword))
                         
                         query (query/build-filter-query filters)
+
+                        ; The from-updated-date parameter is special so it gets its own query parameter (outside filter).
+                        ; But we merge it in with the filter params at this point.
+                        query (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
+                                (assoc query :from-updated-date updated-date)
+                                query)
 
                         ; Get the whole event that is represented by the cursor ID. If supplied.
                         cursor-event (when-let [event-id (get-in ctx [:request :params "cursor"])]
@@ -109,7 +115,7 @@
                    :next-cursor next-cursor-id
                    :total-results total-results
                    :items-per-page (::rows ctx)
-                   :events events}}))
+                   :events (map export-event events)}}))
 
   ; Content negotiation doesn't work for this handler.
   ; https://github.com/clojure-liberator/liberator/issues/94
@@ -137,7 +143,7 @@
               {:status "ok"
                :message-type "event"
                :message {
-                 :event (::event ctx)}})
+                 :event (export-event (::event ctx))}})
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
 

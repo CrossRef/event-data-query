@@ -10,24 +10,24 @@ Provided as a Docker image for deployment. Docker Compose is used for testing.
 
 ## Current set of filters available:
 
-  - `from-collected-date` - as YYYY-MM-DD
   - `from-occurred-date ` - as YYYY-MM-DD
-  - `obj-id.domain` - domain of the subj_id e.g. en.wikipedia.org
-  - `obj-id.prefix` - DOI prefix like 10.5555
+  - `until-occurred-date ` - as YYYY-MM-DD
+  - `from-collected-date` - as YYYY-MM-DD
+  - `until-collected-date` - as YYYY-MM-DD
+  - `subj-id` - quoted URL or a DOI
   - `obj-id` - quoted URL or a DOI
-  - `obj.alternative-id` - optional obj.alternative-id
-  - `obj.url.domain` - domain of the optional obj.url, if present e.g. en.wikipedia.org
+  - `subj-id.prefix` - DOI prefix like 10.5555
+  - `obj-id.prefix` - DOI prefix like 10.5555
+  - `subj-id.domain` - domain of the subj_id e.g. en.wikipedia.org
+  - `obj-id.domain` - domain of the subj_id e.g. en.wikipedia.org
+  - `subj.url` - quoted full URL
   - `obj.url` - quoted full URL
+  - `subj.url.domain` - domain of the optional subj.url, if present e.g. en.wikipedia.org
+  - `obj.url.domain` - domain of the optional obj.url, if present e.g. en.wikipedia.org
+  - `subj.alternative-id` - optional subj.alternative-id
+  - `obj.alternative-id` - optional obj.alternative-id
   - `relation` - relation type ID
   - `source` - source ID
-  - `subj-id.domain` - domain of the subj_id e.g. en.wikipedia.org
-  - `subj-id.prefix` - DOI prefix like 10.5555
-  - `subj-id` - quoted URL or a DOI
-  - `subj.alternative-id` - optional subj.alternative-id
-  - `subj.url.domain` - domain of the optional subj.url, if present e.g. en.wikipedia.org
-  - `subj.url` - quoted full URL
-  - `until-collected-date` - as YYYY-MM-DD
-  - `until-occurred-date ` - as YYYY-MM-DD
 
 ## Usage as a replica
 

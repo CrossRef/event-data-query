@@ -1,15 +1,28 @@
 (ns event-data-query.elastic
    (:require [crossref.util.doi :as cr-doi]
-             [event-data-query.common :as common]
              [qbits.spandex.utils :as s-utils]
              [qbits.spandex :as s]
              [clj-time.coerce :as coerce]
+             [clj-time.format :as clj-time-format]
              [clojure.tools.logging :as log]
              [config.core :refer [env]])
    (:import [java.net URL MalformedURLException]
             [org.elasticsearch.client ResponseException]))
 
 (def index-name "events")
+
+
+(def full-format-no-ms (:date-time-no-ms clj-time-format/formatters))
+(def full-format (:date-time clj-time-format/formatters))
+        
+(defn parse-date   
+  "Parse two kinds of dates."
+  [date-str]
+  (try
+    (clj-time-format/parse full-format-no-ms date-str)
+    (catch IllegalArgumentException e   
+       (clj-time-format/parse full-format date-str))))
+
 
 (def mappings
   {"event" {
@@ -36,7 +49,8 @@
       :timestamp {:type "date" :format "epoch_millis"}
       :source {:type "keyword"}
       :relation-type {:type "keyword"}
-      :updated {:type "date" :format "epoch_millis"}}}})
+      :updated-date {:type "date" :format "epoch_millis"}
+      :updated {:type "keyword"}}}})
 
 (def connection (delay
   (s/client {:hosts [(:elastic-uri env)]})))
@@ -74,6 +88,7 @@
                             :body event})))
 
 (defn transform-for-index
+  "Transform an Event with string keys into an Elastic document."
   [event] 
   (when-not (event "subj_id") (throw (new IllegalArgumentException "Missing subj_id")))
   (when-not (event "obj_id") (throw (new IllegalArgumentException "Missing obj_id")))
@@ -120,7 +135,7 @@
      :obj-prefix (when obj-doi (cr-doi/get-prefix obj-doi))
      :obj-url (str obj-url)
      :obj-url-domain (when obj-url (.getHost obj-url))
-     :occurred (coerce/to-long (common/parse-date (get event "occurred_at")))
+     :occurred (coerce/to-long (parse-date (get event "occurred_at")))
      :subj-doi (when subj-doi
                  (cr-doi/normalise-doi subj-doi))
      :subj-id (if subj-doi
@@ -131,8 +146,9 @@
      :subj-url (str subj-url)
      :subj-url-domain (when subj-url (.getHost subj-url))
      :source (event "source_id")
-     :timestamp (coerce/to-long (common/parse-date (get event "timestamp")))
-     :updated (when-let [date (get event "updated_date")] (coerce/to-long (common/parse-date date)))}))
+     :timestamp (coerce/to-long (parse-date (get event "timestamp")))
+     :updated-date (when-let [date (get event "updated_date")] (coerce/to-long (parse-date date)))
+     :updated (event "updated")}))
 
 (defn insert-event
   "Insert Event with string keys."

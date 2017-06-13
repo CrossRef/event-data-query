@@ -1,6 +1,5 @@
 (ns event-data-query.ingest
- (:require [event-data-query.common :as common]
-           [event-data-query.elastic :as elastic]
+ (:require [event-data-query.elastic :as elastic]
            [event-data-common.queue :as queue]
            [event-data-common.artifact :as artifact]
            [cheshire.core :as cheshire]
@@ -28,6 +27,12 @@
            [robert.bruce :refer [try-try-again]]
            [clojure.walk :as walk])
   (:gen-class))
+
+(def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
+
+(defn yesterday
+  []
+  (clj-time/minus (clj-time/now) (clj-time/days 1)))
 
 (defn retrieve-source-whitelist
   "Retrieve set of source IDs according to config, or nil if not configured."
@@ -73,7 +78,7 @@
    Retrieves both Events for that date and Events updated since that date."
   [num-days]
   (let [date (clj-time/minus (clj-time/now) (clj-time/days num-days))
-        date-str (clj-time-format/unparse common/ymd-format date)
+        date-str (clj-time-format/unparse ymd-format date)
         counter (atom 0)]
     
     (log/info "Replicating occurred Events from" date-str)
@@ -125,7 +130,7 @@
         date-range (take-while #(clj-time/before? % end-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
         total-count (atom 0)]
     (doseq [date date-range]
-      (let [date-str (clj-time-format/unparse common/ymd-format date)]
+      (let [date-str (clj-time-format/unparse ymd-format date)]
         (log/info "Backfill from bus for date" date-str)
         
         (doseq [prefix (event-bus-prefixes-length event-bus-archive-prefix-length)]
