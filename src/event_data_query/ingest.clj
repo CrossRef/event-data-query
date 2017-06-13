@@ -52,6 +52,14 @@
             (@source-whitelist (get event "source_id")))
     (elastic/insert-event event)))
 
+(defn ingest-many
+  "Ingest many event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
+  [events]
+  (if (nil? @source-whitelist)
+    (elastic/insert-events events)
+    (elastic/insert-events 
+      (filter #(@source-whitelist (get % "source_id")) events))))
+
 (def replica-collected-url-default
   "https://query.eventdata.crossref.org/events?filter=from-collected-date:%1$s&cursor=%2$s&rows=10000")
 
@@ -123,34 +131,35 @@
   [length]
   (map #(apply str %) (combinatorics/selections hexadecimal length)))
 
+(def insert-chunk-size 1000)
+
 (defn bus-backfill-days
   [num-days]
-  (let [end-date (clj-time/now)
+  (let [prefixes (first (event-bus-prefixes-length event-bus-archive-prefix-length)) ; TODO
+        end-date (clj-time/now)
         start-date (clj-time/minus end-date (clj-time/days num-days))
         date-range (take-while #(clj-time/before? % end-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
         total-count (atom 0)]
     (doseq [date date-range]
-      (let [date-str (clj-time-format/unparse ymd-format date)]
-        (log/info "Backfill from bus for date" date-str)
-        
-        (doseq [prefix (event-bus-prefixes-length event-bus-archive-prefix-length)]
-          (let [url (str (:event-bus-base env) "/events/archive/" date-str "/" prefix)
-                ; Bus may generate this on-the-fly, so give it time.
-                result (client/get url {:as :stream :timeout 900000 :headers {"Authorization" (str "Bearer " (:jwt-token env))}})]
-            (log/info "Downloading from" url "...")
-            (with-open [body (io/reader (:body result))]
-              (let [stream (cheshire/parse-stream body)
-                    events (get stream "events")]
-                (log/info "Inserting...")
-                (doseq [event events]
-                  (ingest-one event)
-                  (swap! total-count inc)
-                  (when (zero? (mod @total-count 1000))
-                    (log/info "Ingested" @total-count "this session, currently Downloading" date))))))))))
+      (let [date-str (clj-time-format/unparse ymd-format date)
+            prefix-urls (map #(str (:event-bus-base env) "/events/archive/" date-str "/" %) prefixes)
+            api-results (pmap (fn [url]
+                                 (log/info "Fetch archive prefix URL " url)
+                                 (client/get url {:as :stream
+                                                :timeout 900000
+                                                :headers {"Authorization" (str "Bearer " (:jwt-token env))}})) prefix-urls)
+            events (mapcat #(with-open [body (io/reader (:body %))]
+                              (let [stream (cheshire/parse-stream body)]
+                                (get stream "events"))) api-results)
+            event-chunks (partition-all insert-chunk-size events)]
+        (doseq [chunk event-chunks]
+          (swap! total-count #(+ % (count chunk)))
+          (log/info "Ingested" @total-count "this session, currently Downloading" date)
+          (ingest-many chunk))
+        (log/info "Done all chunks for day.")))
+    (log/info "Done all days.")))
 
-        (log/info "Finished ingesting dates. Set indexes...")
-      
-        (log/info "Done backfill job!"))
+
 
 (defn queue-continuous
   "Ingest Events from an ActiveMQ Queue. Block."

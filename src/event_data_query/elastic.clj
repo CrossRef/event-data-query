@@ -74,6 +74,9 @@
                                                 "index.mapper.dynamic" false}
                                                 :mappings mappings}}))))
 
+(defn close! []
+  (s/close! @connection))
+
 (def index-name "event-data-query")
 (def type-name "event")
 
@@ -155,6 +158,19 @@
   [event]
   (when-not event (throw (new IllegalArgumentException "No Event supplied")))
   (insert-prepared-event (transform-for-index event)))
+
+(defn insert-events
+  [events]
+  "Insert a batch of Events with string keys."
+  (let [transformed (map transform-for-index events)
+        chunks (s/chunks->body (mapcat (fn [event]
+                         [{:index {:_index index-name
+                                  :_type type-name
+                                  :_id (:id event)}}
+                          event]) transformed))]
+    (s/request @connection {:url (str index-name "/" type-name "/_bulk")
+                            :method :post
+                            :body  chunks})))
 
 (defn search-query
   [query page-size search-after-timestamp search-after-id]

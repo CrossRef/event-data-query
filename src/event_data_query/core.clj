@@ -15,4 +15,7 @@
     "replicate-backfill-days" (ingest/replicate-backfill-days (Integer/parseInt (second args)))
     "queue-continuous" (ingest/queue-continuous)
     "bus-backfill-days" (ingest/bus-backfill-days (Integer/parseInt (second args)))
-    (log/error "Didn't recognise command" (first args) ". Have another go.")))
+    (log/error "Didn't recognise command" (first args) ". Have another go."))
+  (log/info "Exiting...")
+    (shutdown-agents)
+    (elastic/close!))
