@@ -148,11 +148,21 @@
 (deftest q-relation
   (testing "q-relation should query for relation field"
     (is (= (query/q-relation {:relation "considers"})
-            {:term {:relation "considers"}}))))
+            {:term {:relation-type "considers"}}))))
 
 (deftest q-source
   (testing "q-source should query for source field"
     (is (= (query/q-source {:source "doi-chat"})
             {:term {:source "doi-chat"}}))))
 
+(deftest q-experimental
+  (testing "q-experimental should query for true if present, else false"
+    (is (= (query/q-experimental {:experimental "true"})
+            {:term {:experimental true}}))
+
+    (is (= (query/q-experimental {:experimental "false"})
+            {:term {:experimental false}}))
+
+    (is (= (query/q-experimental {})
+            {:term {:experimental false}}))))
 

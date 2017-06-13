@@ -48,6 +48,7 @@
       :subj-url-domain {:type "keyword"}
       :timestamp {:type "date" :format "epoch_millis"}
       :source {:type "keyword"}
+      :experimental {:type "boolean"}
       :relation-type {:type "keyword"}
       :updated-date {:type "date" :format "epoch_millis"}
       :updated {:type "keyword"}}}})
@@ -126,7 +127,7 @@
      :event event
      :id (event "id")
      :subj-alternative-id (get-in event ["subj" "alternative-id"])
-     :relation (event "relation_type_id")
+     :relation-type (event "relation_type_id")
      :obj-alternative-id (get-in event ["obj" "alternative-id"])
      :obj-doi (when obj-doi
                 (cr-doi/normalise-doi obj-doi))
@@ -149,6 +150,8 @@
      :subj-url (str subj-url)
      :subj-url-domain (when subj-url (.getHost subj-url))
      :source (event "source_id")
+     ; Any value in this field means true, default to false.
+     :experimental (if (event "experimental") true false)
      :timestamp (coerce/to-long (parse-date (get event "timestamp")))
      :updated-date (when-let [date (get event "updated_date")] (coerce/to-long (parse-date date)))
      :updated (event "updated")}))

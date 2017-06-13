@@ -150,12 +150,20 @@
 (defn q-relation
   [params]
   (when-let [relation (:relation params)]
-    {:term {:relation relation}}))
+    {:term {:relation-type relation}}))
 
 (defn q-source
   [params]
   (if-let [source (:source params)]
     {:term {:source source}}))
+
+; Experimental must be false by default.
+(defn q-experimental
+  [params]
+  (let [experimental (:experimental params)]
+    (if (= "true" experimental)
+      {:term {:experimental true}}
+      {:term {:experimental false}})))
 
 (def filters
   "Map of input parameter to function that parses it out."
@@ -176,7 +184,8 @@
    :obj.url.domain q-obj-url-domain
    :subj.alternative-id q-subj-alternative-id
    :obj.alternative-id q-obj-alternative-id
-   :relation q-relation
+   :relation-type q-relation
+   :experimental q-experimental
    :source q-source}) 
 
 (def query-process-fns

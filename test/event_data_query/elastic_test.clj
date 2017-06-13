@@ -45,7 +45,7 @@
   (is (= (:obj-doi processed) "https://doi.org/10.5555/12345678") "")
   (is (= (:obj-url processed) "") "")
   (is (= (:timestamp processed) 1491285439000) "")
-  (is (= (:relation processed) "discusses") "")
+  (is (= (:relation-type processed) "discusses") "")
   (is (= (:subj-url processed) "http://www.example.com/1234567") "")))
 
   (testing "When subj and obj are not DOIs, should be passed through."
@@ -70,4 +70,39 @@
       (is (= (:obj-prefix processed) nil) "")
       (is (= (:subj-prefix processed) nil) "")
       (is (= (:subj-doi processed) nil) "")
-      (is (= (:obj-doi processed) nil) ""))))
+      (is (= (:obj-doi processed) nil) "")))
+
+
+  (testing "Experimental should be set true or default false."
+    (let [input {"experimental" true
+                 "obj_id" "http://example.com/obj_id"
+                 "source_token" "45a1ef76-4f43-4cdc-9ba8-5a6ad01cc231"
+                 "occurred_at" "2017-04-04T05:56:53Z"
+                 "subj_id" "http://example.com/subj_id",
+                 "id" "00037012-c6b8-4862-93ef-5a5043c657bb",
+                 "action" "add",
+                 "subj" {"some" "subj_data"},
+                 "source_id" "my_source_id",
+                 "obj" {"some" "obj_data"},
+                 "timestamp" "2017-03-04T05:57:19Z",
+                 "evidence-record" "https://evidence.eventdata.crossref.org/evidence/20170404-twitter-66e922df-9754-45f7-886f-f7ddaa6ea8ba",
+                 "relation_type_id" "discusses"}
+          processed (elastic/transform-for-index input)]
+
+      (is (= (:experimental processed) true) ""))
+
+    (let [input {"obj_id" "http://example.com/obj_id"
+                 "source_token" "45a1ef76-4f43-4cdc-9ba8-5a6ad01cc231"
+                 "occurred_at" "2017-04-04T05:56:53Z"
+                 "subj_id" "http://example.com/subj_id",
+                 "id" "00037012-c6b8-4862-93ef-5a5043c657bb",
+                 "action" "add",
+                 "subj" {"some" "subj_data"},
+                 "source_id" "my_source_id",
+                 "obj" {"some" "obj_data"},
+                 "timestamp" "2017-03-04T05:57:19Z",
+                 "evidence-record" "https://evidence.eventdata.crossref.org/evidence/20170404-twitter-66e922df-9754-45f7-886f-f7ddaa6ea8ba",
+                 "relation_type_id" "discusses"}
+          processed (elastic/transform-for-index input)]
+
+      (is (= (:experimental processed) false) ""))))
