@@ -23,7 +23,7 @@
     (try
       {:range {:occurred {:gte (coerce/to-long (start-of date-str))}}}
     (catch IllegalArgumentException _
-      (throw+ {:type :query-format-error
+      (throw+ {:type :validation-failure
                :subtype :invalid-date
                :message (str "Date format suplied to from-occurred-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
 
@@ -33,7 +33,7 @@
     (try
       {:range {:occurred {:lt (coerce/to-long (end-of date-str))}}}
     (catch IllegalArgumentException _
-      (throw+ {:type :query-format-error
+      (throw+ {:type :validation-failure
                :subtype :invalid-date
                :message (str "Date format suplied to until-occurred-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
 
@@ -43,7 +43,7 @@
     (try
       {:range {:timestamp {:gte (coerce/to-long (start-of date-str))}}}
     (catch IllegalArgumentException _
-      (throw+ {:type :query-format-error
+      (throw+ {:type :validation-failure
                :subtype :invalid-date
                :message (str "Date format suplied to from-collected-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
 
@@ -53,7 +53,7 @@
     (try
       {:range {:timestamp {:lt (coerce/to-long (end-of date-str))}}}
     (catch IllegalArgumentException _
-      (throw+ {:type :query-format-error
+      (throw+ {:type :validation-failure
                :subtype :invalid-date
                :message (str "Date format suplied to until-collected-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
 
@@ -65,7 +65,7 @@
     (try
       {:range {:updated-date {:gte (coerce/to-long (start-of date-str))}}}
       (catch IllegalArgumentException _
-      (throw+ {:type :query-format-error
+      (throw+ {:type :validation-failure
                :subtype :invalid-date
                :message (str "Date format suplied to from-updated-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))
       {:bool {:must_not {:term {:updated "deleted"}}}}))
@@ -186,9 +186,9 @@
   "Validate that all filter keys are recognised. Return nil or throw exception for first error."
   [params]
   (when-let [unrecognised (first (clojure.set/difference (set (keys params)) (set (keys filters))))]
-    (throw+ {:type :query-format-error
-             :subtype :key
-             :message (str "Didn't recognise filter parameter: " unrecognised ". Available filters: " (clojure.string/join (keys filters) ","))})))
+    (throw+ {:type :validation-failure
+             :subtype :filter-not-available
+             :message (str "Filter " (name unrecognised) " specified but there is no such filter for this route. Valid filters for this route are: " (clojure.string/join ", " (map name (keys filters))))})))
 
 (defn build-filter-query
   "Transform filter params dictionary into ElasticSearch query."

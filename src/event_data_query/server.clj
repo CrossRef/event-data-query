@@ -37,7 +37,8 @@
             [liberator.core :refer [defresource]]
             [liberator.representation :as representation]
             [ring.util.response :as ring-response]
-            [overtone.at-at :as at-at])
+            [overtone.at-at :as at-at]
+            [slingshot.slingshot :refer [try+]])
   (:gen-class))
 
 (def event-data-homepage "https://www.crossref.org/services/event-data")
@@ -64,7 +65,7 @@
   :available-media-types ["application/json"]
   
   :malformed? (fn [ctx]
-                (try
+                (try+
                   (let [rows (or
                                (try-parse-int (get-in ctx [:request :params "rows"]))
                                default-page-size)
@@ -87,6 +88,9 @@
                                           (throw (new IllegalArgumentException "Invalid cursor supplied.")))
                                         event))]
 
+                    ; This may throw.
+                    (query/validate-filter-keys filters)
+
                     (log/info "Got filters" filters)
                     (log/info "Execute query" query)
 
@@ -95,6 +99,11 @@
                       ::query query
                       ::cursor-event cursor-event}])
 
+                  (catch [:type :validation-failure] {:keys [message type subtype]}
+                    [true {::error-type type
+                           ::error-subtype subtype
+                           ::error-message message}])
+                  
                   (catch IllegalArgumentException ex
                     [true {::error-message (.getMessage ex)}])))
 
@@ -121,9 +130,10 @@
   ; Content negotiation doesn't work for this handler.
   ; https://github.com/clojure-liberator/liberator/issues/94
   :handle-malformed (fn [ctx]
-                      (json/write-str {:status "error"
-                       :message-type "error"
-                       :message (::error-message ctx)})))
+                      (json/write-str {:status "failed"
+                       :message-type (::error-type ctx)
+                       :message [{:type (::error-subtype ctx)
+                                  :message (::error-message ctx)}]})))
 
 (defresource event
   [id]
