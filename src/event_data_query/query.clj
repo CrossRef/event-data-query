@@ -3,6 +3,7 @@
             [clj-time.coerce :as coerce]
             [clj-time.format :as clj-time-format]
             [crossref.util.doi :as cr-doi]
+            [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [throw+]]))
 
 (def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
@@ -40,7 +41,7 @@
   [params]
   (when-let [date-str (:from-collected-date params)]
     (try
-      {:range {:timestamp {:lt (coerce/to-long (start-of date-str))}}}
+      {:range {:timestamp {:gte (coerce/to-long (start-of date-str))}}}
     (catch IllegalArgumentException _
       (throw+ {:type :query-format-error
                :subtype :invalid-date
@@ -62,12 +63,12 @@
   ; Don't serve up deleted content unless we're showing updates.
   (if-let [date-str (:from-updated-date params)]
     (try
-      {:range-date {:updated-date {:lt (coerce/to-long (start-of date-str))}}}
+      {:range {:updated-date {:gte (coerce/to-long (start-of date-str))}}}
       (catch IllegalArgumentException _
       (throw+ {:type :query-format-error
                :subtype :invalid-date
                :message (str "Date format suplied to from-updated-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))
-      {:bool {:must-not {:term {:updated "deleted"}}}}))
+      {:bool {:must_not {:term {:updated "deleted"}}}}))
   
 
 
@@ -192,5 +193,8 @@
 (defn build-filter-query
   "Transform filter params dictionary into ElasticSearch query."
   [params]
-  {:bool {:filter (remove nil? (query-process-fns params))}})
+  (let [result {:bool {:filter (remove nil? (query-process-fns params))}}]
+    (log/info "Build filter query" params "->" result)
+    result))
+  
 

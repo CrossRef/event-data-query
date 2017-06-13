@@ -201,4 +201,11 @@
     (catch Exception ex
       nil)))
 
-    
+(defn alternative-ids-exist
+  "From a list of alternative IDs, find the ones that intersect with Subject alternative IDs."
+  [alternative-ids]
+  (let [query {:query {:bool {:filter {:terms {:subj-alternative-id alternative-ids}}}}}
+        result (s/request @connection
+                          {:url (str index-name "/" type-name "/_search")
+                           :body query})]
+    (map #(-> % :_source :subj-alternative-id) (-> result :body :hits :hits))))

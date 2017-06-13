@@ -71,13 +71,14 @@
 
                         filters (when-let [params (get-in ctx [:request :params "filter"])] (parameters/parse params keyword))
                         
-                        query (query/build-filter-query filters)
 
                         ; The from-updated-date parameter is special so it gets its own query parameter (outside filter).
                         ; But we merge it in with the filter params at this point.
-                        query (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
-                                (assoc query :from-updated-date updated-date)
-                                query)
+                        filters (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
+                                (assoc filters :from-updated-date updated-date)
+                                filters)
+
+                        query (query/build-filter-query filters)
 
                         ; Get the whole event that is represented by the cursor ID. If supplied.
                         cursor-event (when-let [event-id (get-in ctx [:request :params "cursor"])]
@@ -147,24 +148,19 @@
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
 
-; Return all anternative-ids that match an alternative-id of a subject in the index.
-; TODO is this required?
-; For batches of > 10, this is 4x faster than individual checks.
-
-(defn alternative-ids-exist
-  [alternative-ids]
-  ; (map #(-> % :subj :alternative-id) (mc/find-maps db common/event-mongo-collection-name {:subj.alternative-id {"$in" alternative-ids}} {:subj.alternative-id 1})))
-)
+(def x (atom nil))
 
 (defresource alternative-ids-check
   []
   :allowed-methods [:get]
   :available-media-types ["application/json"]
   :handle-ok (fn [ctx]
-               (let [ids (.split
-                         (get-in ctx [:request :params "ids"] "")
-                        ",")
-                    matches (alternative-ids-exist ids)]
+    (reset! x ctx)
+               (let [ids (vec (.split
+                                (get-in ctx [:request :params "ids"] "")
+                                ","))
+               
+                    matches (elastic/alternative-ids-exist ids)]
                 {:alternative-ids matches})))
 
 (defresource home
@@ -178,8 +174,7 @@
   (GET "/" [] (home))
   (GET "/events" [] (events))
   (GET "/events/:id" [id] (event id))
-  ; (GET "/special/alternative-ids-check" [] (alternative-ids-check))
-  )
+  (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
 
 (defn wrap-cors [handler]
   (fn [request]
@@ -202,4 +197,3 @@
 
     (log/info "Start server on " port)
     (server/run-server app {:port port})))
-()

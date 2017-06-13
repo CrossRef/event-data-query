@@ -45,7 +45,7 @@
 (deftest q-from-collected-date
   (testing "q-from-collected-date creates query including :timestamp when present"
     (is (= (query/q-from-collected-date {:from-collected-date "2017-01-01"})
-           {:range {:timestamp {:lt 1483228800000}}})
+           {:range {:timestamp {:gte 1483228800000}}})
       "'timestamp' greater than or equal date using special indexed field"))
   
   (testing "from-collected-date throws exception on invalid date"
@@ -66,12 +66,12 @@
 (deftest q-from-updated-date
   (testing "q-from-updated-date filters :update field from start of given day when date present"
     (is (= (query/q-from-updated-date {:updated-date nil})
-           {:bool {:must-not {:term {:updated "deleted"}}}})
+           {:bool {:must_not {:term {:updated "deleted"}}}})
       "'timestamp' greater than or equal date using special indexed field"))
 
   (testing "q-from-updated-date excludes deleted items if not present"
     (is (= (query/q-from-updated-date {})
-           {:bool {:must-not {:term {:updated "deleted"}}}})
+           {:bool {:must_not {:term {:updated "deleted"}}}})
       "'timestamp' greater than or equal date using special indexed field"))
   
   (testing "from-updated-date throws exception on invalid date"
