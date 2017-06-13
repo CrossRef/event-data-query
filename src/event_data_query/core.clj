@@ -6,16 +6,21 @@
             [clojure.tools.logging :as log])
   (:gen-class))
 
+(defn close []
+  (shutdown-agents)
+      (elastic/close!))
+
 (defn -main
   [& args]
   (elastic/ensure-index)
   (condp = (first args)
     "server" (server/run)
     "replicate-continuous" (ingest/replicate-continuous)
-    "replicate-backfill-days" (ingest/replicate-backfill-days (Integer/parseInt (second args)))
+    "replicate-backfill-days" (do (ingest/replicate-backfill-days (Integer/parseInt (second args)))
+                                  (close))
     "queue-continuous" (ingest/queue-continuous)
-    "bus-backfill-days" (ingest/bus-backfill-days (Integer/parseInt (second args)))
-    (log/error "Didn't recognise command" (first args) ". Have another go."))
-  (log/info "Exiting...")
-    (shutdown-agents)
-    (elastic/close!))
+    "bus-backfill-days" (do (ingest/bus-backfill-days (Integer/parseInt (second args)))
+                            (close))
+    (do
+      (log/error "Didn't recognise command" (first args) ". Have another go.")
+      (close))))
