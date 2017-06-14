@@ -9,8 +9,8 @@
    (:import [java.net URL MalformedURLException]
             [org.elasticsearch.client ResponseException]))
 
-(def index-name "events")
-
+(def index-name "event-data-query")
+(def type-name "event")
 
 (def full-format-no-ms (:date-time-no-ms clj-time-format/formatters))
 (def full-format (:date-time clj-time-format/formatters))
@@ -25,7 +25,7 @@
 
 
 (def mappings
-  {"event" {
+  {type-name {
     ; We explicitly project and create all required indexes.
     :dynamic false
     :properties {
@@ -77,9 +77,6 @@
 
 (defn close! []
   (s/close! @connection))
-
-(def index-name "event-data-query")
-(def type-name "event")
 
 (defn insert-prepared-event
   "Insert Event with string keys in index-ready format."
