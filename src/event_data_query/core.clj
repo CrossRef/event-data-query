@@ -8,7 +8,7 @@
 
 (defn close []
   (shutdown-agents)
-      (elastic/close!))
+  (elastic/close!))
 
 (defn -main
   [& args]
@@ -21,6 +21,4 @@
     "queue-continuous" (ingest/queue-continuous)
     "bus-backfill-days" (do (ingest/bus-backfill-days (Integer/parseInt (second args)))
                             (close))
-    (do
-      (log/error "Didn't recognise command" (first args) ". Have another go.")
-      (close))))
+  (log/error "Didn't recognise command" (first args) ". Have another go.")))

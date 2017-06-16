@@ -30,6 +30,8 @@
 
 (def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
 
+(def insert-chunk-size 1000)
+
 (defn yesterday
   []
   (clj-time/minus (clj-time/now) (clj-time/days 1)))
@@ -87,21 +89,23 @@
   [num-days]
   (let [date (clj-time/minus (clj-time/now) (clj-time/days num-days))
         date-str (clj-time-format/unparse ymd-format date)
-        counter (atom 0)]
-    
-    (log/info "Replicating occurred Events from" date-str)
-    (doseq [event (fetch-query-api (:replica-collected-url env replica-collected-url-default) date-str)]
-      (ingest-one event)
-      (swap! counter inc)
-      (when (zero? (mod @counter 1000))
-                    (log/info "Ingested" @counter "this session, currently Downloading" date)))
 
-    (log/info "Replicating updated Events from" date-str)
-    (doseq [event (fetch-query-api (:replica-updated-url env replica-collected-url-default) date-str)]
-      (ingest-one event)
-      (swap! counter inc)
-      (when (zero? (mod @counter 1000))
-                    (log/info "Ingested" @counter "this session, currently Downloading" date)))
+        events-collected-chunks (partition-all insert-chunk-size (fetch-query-api (:replica-collected-url env replica-collected-url-default) date-str))
+        events-updated-chunks (partition-all insert-chunk-size (fetch-query-api (:replica-updated-url env replica-collected-url-default) date-str))
+
+        collected-count (atom 0)
+        updated-count (atom 0)]
+
+    (doseq [chunk events-collected-chunks]
+          (swap! collected-count #(+ % (count chunk)))
+          (log/info "Ingested" @collected-count "this session, currently Downloading" date)
+          (ingest-many chunk))
+
+    (doseq [chunk events-updated-chunks]
+          (swap! updated-count #(+ % (count chunk)))
+          (log/info "Ingested" @updated-count "this session, currently Downloading" date)
+          (ingest-many chunk))
+
     (log/info "Done replicating.")))
 
 (defjob replicate-yesterday-job
@@ -131,8 +135,6 @@
   [length]
   (map #(apply str %) (combinatorics/selections hexadecimal length)))
 
-(def insert-chunk-size 1000)
-
 (defn bus-backfill-days
   [num-days]
   (let [prefixes (event-bus-prefixes-length event-bus-archive-prefix-length)
@@ -145,9 +147,11 @@
             prefix-urls (map #(str (:event-bus-base env) "/events/archive/" date-str "/" %) prefixes)
             api-results (pmap (fn [url]
                                  (log/info "Fetch archive prefix URL " url)
-                                 (client/get url {:as :stream
-                                                :timeout 900000
-                                                :headers {"Authorization" (str "Bearer " (:jwt-token env))}})) prefix-urls)
+                                 (try-try-again
+                                   {:sleep 30000 :tries 10}
+                                   #(client/get url {:as :stream
+                                                     :timeout 900000
+                                                     :headers {"Authorization" (str "Bearer " (:jwt-token env))}}))) prefix-urls)
             events (mapcat #(with-open [body (io/reader (:body %))]
                               (let [stream (cheshire/parse-stream body)]
                                 (get stream "events"))) api-results)
