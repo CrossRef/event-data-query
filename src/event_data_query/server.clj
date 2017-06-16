@@ -82,7 +82,9 @@
                         query (query/build-filter-query filters)
 
                         ; Get the whole event that is represented by the cursor ID. If supplied.
-                        cursor-event (when-let [event-id (get-in ctx [:request :params "cursor"])]
+                        cursor-event (when-let [event-id (let [cursor-val (get-in ctx [:request :params "cursor"])]
+                                                           (when-not (clojure.string/blank? cursor-val)
+                                                             cursor-val))]
                                        (let [event (elastic/get-by-id-full event-id)]
                                         (when-not event
                                           (throw (new IllegalArgumentException "Invalid cursor supplied.")))
