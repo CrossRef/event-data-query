@@ -80,40 +80,35 @@ To run tests
 
 In all cases:
 
-| Environment variable | Description              |
-|----------------------|--------------------------|
-| `ELASTIC_URI`        | Connection URI for ElasticSearch e.g. `http://127.0.0.1:9200` |
+| Environment variable | Description                                                   |
+|----------------------|---------------------------------------------------------------|
+| `QUERY_ELASTIC_URI`  | Connection URI for ElasticSearch e.g. `http://127.0.0.1:9200` |
 
 Running server:
 
 | Environment variable | Description                         |
 |----------------------|-------------------------------------|
-| `PORT`               | Port to listen on                   |
-
+| `QUERY_PORT`         | Port to listen on                   |
 
 Running as a replica:
 
 | Environment variable    | Description                                                                                         |
 |-------------------------|-----------------------------------------------------------------------------------------------------|
-| `REPLICA_COLLECTED_URL` | Templated URL, described above. %1$s is start collection date, %2$ is cursor. Optional with default.|
-| `REPLICA_UPDATED_URL`   | Templated URL, described above. %1$s is start update date, %2$ is cursor. Optional with default.    |
+| `QUERY_REPLICA_COLLECTED_URL` | Templated URL, described above. %1$s is start collection date, %2$ is cursor. Optional with default.|
+| `QUERY_REPLICA_UPDATED_URL`   | Templated URL, described above. %1$s is start update date, %2$ is cursor. Optional with default.    |
 
 Running within Crossref:
 
-| Environment variable      | Description                                                    |
-|---------------------------|----------------------------------------------------------------|
-| `WHITELIST_ARTIFACT_NAME` | Name of Artifact used for source whitelist. Optional.     |
-| `STATUS_SERVICE`          | Public URL of the Status service. Optional.                    |
-| `EVENT_BUS_BASE`          | Event Bus URL base. Optional.                                  |
-| `ARTIFACT_BASE`           | Public URL of Artifact registry. Optional.                     |
-| `JWT_TOKEN`               | JWT Token for authenticating with Bus. Optional.               |
-| `JWT_SECRETS`             | JWT Secrets for connecting to Status service. Optional.        |
-| `TERMS`                   | A Terms URL to be associated with each event. Optional.        |
-| `ACTIVEMQ_USERNAME`       | ActiveMQ credentials for ingestion queue.                      |
-| `ACTIVEMQ_PASSWORD`       | ActiveMQ credentials for ingestion queue.                      |
-| `ACTIVEMQ_URL`            | ActiveMQ connection URL for ingestion queue.                   |
-| `ACTIVEMQ_QUEUE`          | Name of queue to ingest.                                       |
-
+| Environment variable             | Description                                                    |
+|----------------------------------|----------------------------------------------------------------|
+| `QUERY_WHITELIST_ARTIFACT_NAME`  | Name of Artifact used for source whitelist. Optional.          |
+| `QUERY_EVENT_BUS_BASE`           | Event Bus URL base for re-fill. Optional.                      |
+| `GLOBAL_ARTIFACT_URL_BASE`       | Public URL of Artifact registry. Optional.                     |
+| `QUERY_JWT`                      | JWT Token for authenticating with Bus. Optional.               |
+| `GLOBAL_JWT_SECRETS`             | JWT Secrets for connecting to Status service. Optional.        |
+| `QUERY_TERMS_URL`                | A Terms URL to be associated with each event. Optional.        |
+| `GLOBAL_KAFKA_BOOTSTRAP_SERVERS` | Kafka servers                                                  |
+| `GLOBAL_BUS_OUTPUT_TOPIC`        | Topic to look for Events coming out of the Bus.                |
 
 
 ## License

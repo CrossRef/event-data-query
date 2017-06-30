@@ -18,7 +18,7 @@
     "replicate-continuous" (ingest/replicate-continuous)
     "replicate-backfill-days" (do (ingest/replicate-backfill-days (Integer/parseInt (second args)))
                                   (close))
-    "queue-continuous" (ingest/queue-continuous)
+    "ingest-kafka" (ingest/run-ingest-kafka)
     "bus-backfill-days" (do (ingest/bus-backfill-days (Integer/parseInt (second args)))
                             (close))
   (log/error "Didn't recognise command" (first args) ". Have another go.")))

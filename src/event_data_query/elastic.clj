@@ -54,7 +54,7 @@
       :updated {:type "keyword"}}}})
 
 (def connection (delay
-  (s/client {:hosts [(:elastic-uri env)]})))
+  (s/client {:hosts [(:query-elastic-uri env)]})))
 
 (defn delete-index
   "Delete the index."
@@ -162,15 +162,16 @@
 (defn insert-events
   [events]
   "Insert a batch of Events with string keys."
-  (let [transformed (map transform-for-index events)
-        chunks (s/chunks->body (mapcat (fn [event]
-                         [{:index {:_index index-name
-                                  :_type type-name
-                                  :_id (:id event)}}
-                          event]) transformed))]
-    (s/request @connection {:url (str index-name "/" type-name "/_bulk")
-                            :method :post
-                            :body  chunks})))
+  (when-not (empty? events)
+    (let [transformed (map transform-for-index events)
+          chunks (s/chunks->body (mapcat (fn [event]
+                           [{:index {:_index index-name
+                                    :_type type-name
+                                    :_id (:id event)}}
+                            event]) transformed))]
+      (s/request @connection {:url (str index-name "/" type-name "/_bulk")
+                              :method :post
+                              :body  chunks}))))
 
 (defn search-query
   [query page-size search-after-timestamp search-after-id]

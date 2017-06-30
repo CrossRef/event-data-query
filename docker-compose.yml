@@ -37,12 +37,11 @@ services:
      - .:/usr/src/app
      - ./.m2-cache:/root/.m2
     environment:
-     - EVENT_BUS_BASE=http://138.201.202.133:8002
-     - ARTIFACT_BASE=http://event-data-artifact-prod.s3.amazonaws.com
-     - SOURCE_QUERY=https://bus.eventdata.crossref.org/events/archive/%s
-     - PORT=8100
-     - JWT_SECRETS=TEST,TEST2
-     - WHITELIST_OVERRIDE=true
-     - TERMS=https://doi.org/10.13003/CED-terms-of-use
+     - QUERY_EVENT_BUS_BASE=http://138.201.202.133:8002
+     - GLOBAL_ARTIFACT_URL_BASE=http://event-data-artifact-prod.s3.amazonaws.com
+     - QUERY_PORT=8100
+     - GLOBAL_JWT_SECRETS=TEST,TEST2
+     - QUERY_WHITELIST_OVERRIDE=true
+     - QUERY_TERMS_URL=https://doi.org/10.13003/CED-terms-of-use
     command: "lein run server"
 

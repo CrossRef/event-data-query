@@ -1,6 +1,5 @@
 (ns event-data-query.ingest
  (:require [event-data-query.elastic :as elastic]
-           [event-data-common.queue :as queue]
            [event-data-common.artifact :as artifact]
            [cheshire.core :as cheshire]
            [clj-http.client :as client]
@@ -26,7 +25,9 @@
            [clojure.math.combinatorics :as combinatorics]
            [robert.bruce :refer [try-try-again]]
            [clojure.walk :as walk])
+  (:import [org.apache.kafka.clients.consumer KafkaConsumer Consumer ConsumerRecords])
   (:gen-class))
+
 
 (def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
 
@@ -39,7 +40,7 @@
 (defn retrieve-source-whitelist
   "Retrieve set of source IDs according to config, or nil if not configured."
   []
-  (when-let [artifact-name (:whitelist-artifact-name env)]
+  (when-let [artifact-name (:query-whitelist-artifact-name env)]
     (let [source-names (-> artifact-name artifact/fetch-latest-artifact-string (clojure.string/split #"\n") set)]
       (log/info "Retrieved source names:" source-names)
       source-names)))
@@ -90,8 +91,8 @@
   (let [date (clj-time/minus (clj-time/now) (clj-time/days num-days))
         date-str (clj-time-format/unparse ymd-format date)
 
-        events-collected-chunks (partition-all insert-chunk-size (fetch-query-api (:replica-collected-url env replica-collected-url-default) date-str))
-        events-updated-chunks (partition-all insert-chunk-size (fetch-query-api (:replica-updated-url env replica-collected-url-default) date-str))
+        events-collected-chunks (partition-all insert-chunk-size (fetch-query-api (:query-replica-collected-url env replica-collected-url-default) date-str))
+        events-updated-chunks (partition-all insert-chunk-size (fetch-query-api (:query-replica-updated-url env replica-collected-url-default) date-str))
 
         collected-count (atom 0)
         updated-count (atom 0)]
@@ -144,14 +145,14 @@
         total-count (atom 0)]
     (doseq [date date-range]
       (let [date-str (clj-time-format/unparse ymd-format date)
-            prefix-urls (map #(str (:event-bus-base env) "/events/archive/" date-str "/" %) prefixes)
+            prefix-urls (map #(str (:query-event-bus-base env) "/events/archive/" date-str "/" %) prefixes)
             api-results (pmap (fn [url]
                                  (log/info "Fetch archive prefix URL " url)
                                  (try-try-again
                                    {:sleep 30000 :tries 10}
                                    #(client/get url {:as :stream
                                                      :timeout 900000
-                                                     :headers {"Authorization" (str "Bearer " (:jwt-token env))}}))) prefix-urls)
+                                                     :headers {"Authorization" (str "Bearer " (:query-jwt env))}}))) prefix-urls)
             events (mapcat #(with-open [body (io/reader (:body %))]
                               (let [stream (cheshire/parse-stream body)]
                                 (get stream "events"))) api-results)
@@ -164,13 +165,28 @@
     (log/info "Done all days.")))
 
 
-
-(defn queue-continuous
-  "Ingest Events from an ActiveMQ Queue. Block."
+(defn run-ingest-kafka
   []
-  (let [config {:username (:activemq-username env) :password (:activemq-password env) :url (:activemq-url env) :queue-name (:activemq-queue env)}]
-    (log/info "Starting to listening to queue with config" config)
-    ; The queue library kindly deserializes JSON back into objects, but keywor
-    (queue/process-queue config #(ingest-one (walk/stringify-keys %)))
-    (log/error "Finished listening to queue.")))
+  (let [properties (java.util.Properties.)]
+     (.put properties "bootstrap.servers" (:global-kafka-bootstrap-servers env))
+     (.put properties "group.id"  "query-input")
+     (.put properties "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+     (.put properties "value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+     
+     ; This is only used in the absence of an existing marker for the group.
+     (.put properties "auto.offset.reset" "earliest")
+
+     (let [consumer (KafkaConsumer. properties)
+           topic-name (:global-bus-output-topic env)]
+       (log/info "Subscribing to" topic-name)
+       (.subscribe consumer (list topic-name))
+       (log/info "Subscribed to" topic-name "got" (count (or (.assignment consumer) [])) "assigned partitions")
+       (loop []
+         (log/info "Polling...")
+         (let [^ConsumerRecords records (.poll consumer (int 1000))
+               events (map #(json/read-str (.value %)) records)]
+            (log/info "Ingested" (count events) "events")
+            (ingest-many events)
+            (recur))))))
+
 

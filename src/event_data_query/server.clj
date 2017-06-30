@@ -45,7 +45,7 @@
 
 (def terms-url
   "URL of terms and conditions, or nil."
-  (:terms env))
+  (:query-terms-url env))
 
 (defn try-parse-int
   "Parse integer, if present, or throw."
@@ -203,7 +203,7 @@
 (def schedule-pool (at-at/mk-pool))
 
 (defn run []
-  (let [port (Integer/parseInt (:port env))]
+  (let [port (Integer/parseInt (:query-port env))]
     (when (:status-service env)
       (at-at/every 10000 #(status/send! "query" "heartbeat" "tick" 1) schedule-pool))
 
