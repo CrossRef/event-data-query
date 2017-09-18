@@ -72,7 +72,9 @@
       (s/request @connection {:url index-name
                               :method :put
                               :body {:settings {"index.mapping.depth.limit" 1
-                                                "index.mapper.dynamic" false}
+                                                "index.mapper.dynamic" false
+                                                "number_of_shards" 8
+                                                "number_of_replicas" 2}
                                                 :mappings mappings}}))))
 
 (defn close! []
