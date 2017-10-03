@@ -58,6 +58,10 @@ The following methods are only for Crossref internal use as they depend on acces
  - `lein run bus-backfill-days «days»` - backfill from a number of days in the past from the Event Bus archive
  - `lein run add-indexes` - one off, ensure that all indexes are present
 
+If the mappings (i.e. fields that ElasticSearch indexes) change, you need to run:
+
+  - `lein run update-mappings` - run the server
+
 ### Source Whitelists
 
 Because we may recieve data for more sources than we wish to store, the whitelist can be provided. This should be the name of a Crossref Artifact, e.g. `crossref-sourcelist`. The whitelist is applied on ingestion, so data must be backfilled if it was discarded due to a previous value.
@@ -105,7 +109,6 @@ Running within Crossref:
 | `QUERY_EVENT_BUS_BASE`           | Event Bus URL base for re-fill. Optional.                      |
 | `GLOBAL_ARTIFACT_URL_BASE`       | Public URL of Artifact registry. Optional.                     |
 | `QUERY_JWT`                      | JWT Token for authenticating with Bus. Optional.               |
-| `GLOBAL_JWT_SECRETS`             | JWT Secrets for connecting to Status service. Optional.        |
 | `QUERY_TERMS_URL`                | A Terms URL to be associated with each event. Optional.        |
 | `GLOBAL_KAFKA_BOOTSTRAP_SERVERS` | Kafka servers                                                  |
 | `GLOBAL_BUS_OUTPUT_TOPIC`        | Topic to look for Events coming out of the Bus.                |

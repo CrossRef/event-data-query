@@ -76,6 +76,12 @@
                                                 "number_of_shards" 8
                                                 "number_of_replicas" 2}
                                                 :mappings mappings}}))))
+(defn update-mappings
+  []
+  "Update mappings in-place."
+  (s/request @connection {:url (str index-name "/" type-name "/_mapping")
+                          :method :post
+                          :body mappings}))
 
 (defn close! []
   (s/close! @connection))

@@ -48,13 +48,6 @@
 (def source-whitelist
   (delay (retrieve-source-whitelist)))
 
-(defn ingest-one
-  "Ingest one event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
-  [event]
-  (when (or (nil? @source-whitelist)
-            (@source-whitelist (get event "source_id")))
-    (elastic/insert-event event)))
-
 (defn ingest-many
   "Ingest many event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
   [events]

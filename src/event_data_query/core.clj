@@ -14,6 +14,7 @@
   [& args]
   (elastic/ensure-index)
   (condp = (first args)
+    "update-mappings" (elastic/update-mappings)
     "server" (server/run)
     "replicate-continuous" (ingest/replicate-continuous)
     "replicate-backfill-days" (do (ingest/replicate-backfill-days (Integer/parseInt (second args)))
