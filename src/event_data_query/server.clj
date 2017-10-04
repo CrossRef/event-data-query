@@ -61,7 +61,7 @@
 (def default-page-size 1000)
 
 (defresource events
-  []
+  [type-name]
   :available-media-types ["application/json"]
   
   :malformed? (fn [ctx]
@@ -111,10 +111,11 @@
 
   :handle-ok (fn [ctx]
                (let [events (elastic/search-query (::query ctx)
+                                                  type-name
                                                   (::rows ctx)
                                                   (-> ctx ::cursor-event :timestamp)
                                                   (-> ctx ::cursor-event :id))
-                     total-results (elastic/count-query (::query ctx))
+                     total-results (elastic/count-query (::query ctx) type-name)
                      next-cursor-id (-> events last :id)]
                 
                 (when (:status-service env)
@@ -184,7 +185,8 @@
 
 (defroutes app-routes
   (GET "/" [] (home))
-  (GET "/events" [] (events))
+  (GET "/events" [] (events elastic/event-type-name))
+  (GET "/events/distinct" [] (events elastic/latest-type-name))
   (GET "/events/:id" [id] (event id))
   (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
 

@@ -1,5 +1,6 @@
 (ns event-data-query.elastic
    (:require [crossref.util.doi :as cr-doi]
+             [crossref.util.string :as cr-str]
              [qbits.spandex.utils :as s-utils]
              [qbits.spandex :as s]
              [clj-time.coerce :as coerce]
@@ -10,7 +11,12 @@
             [org.elasticsearch.client ResponseException]))
 
 (def index-name "event-data-query")
-(def type-name "event")
+
+; Index of all Events
+(def event-type-name "event")
+
+; Index of latest version of Event for each subj_id, obj_id
+(def latest-type-name "latest")
 
 (def full-format-no-ms (:date-time-no-ms clj-time-format/formatters))
 (def full-format (:date-time clj-time-format/formatters))
@@ -24,34 +30,38 @@
        (clj-time-format/parse full-format date-str))))
 
 
+(def mapping-properties
+  {; we also have an unindexed 'event' field which is used contain the original Event verbatim.
+   :id {:type "keyword"}
+   :obj-doi {:type "keyword"}
+   :obj-id {:type "keyword"}
+   :obj-alternative-id {:type "keyword"}
+   :subj-alternative-id {:type "keyword"}
+   :obj-prefix {:type "keyword"}
+   :obj-url {:type "keyword"}
+   :obj-id-domain  {:type "keyword"}
+   :obj-url-domain {:type "keyword"}
+   :occurred {:type "date" :format "epoch_millis"} 
+   :subj-doi {:type "keyword"}
+   :subj-id {:type "keyword"}
+   :subj-id-domain {:type "keyword"}
+   :subj-prefix {:type "keyword"}
+   :subj-url {:type "keyword"}
+   :subj-url-domain {:type "keyword"}
+   :timestamp {:type "date" :format "epoch_millis"}
+   :source {:type "keyword"}
+   :experimental {:type "boolean"}
+   :relation-type {:type "keyword"}
+   :updated-date {:type "date" :format "epoch_millis"}
+   :updated {:type "keyword"}})
+ 
 (def mappings
-  {type-name {
-    ; We explicitly project and create all required indexes.
-    :dynamic false
-    :properties {
-      ; we also have an unindexed 'event' field which is used contain the original Event verbatim.
-      :id {:type "keyword"}
-      :obj-doi {:type "keyword"}
-      :obj-id {:type "keyword"}
-      :obj-alternative-id {:type "keyword"}
-      :subj-alternative-id {:type "keyword"}
-      :obj-prefix {:type "keyword"}
-      :obj-url {:type "keyword"}
-      :obj-id-domain  {:type "keyword"}
-      :obj-url-domain {:type "keyword"}
-      :occurred {:type "date" :format "epoch_millis"} 
-      :subj-doi {:type "keyword"}
-      :subj-id {:type "keyword"}
-      :subj-id-domain {:type "keyword"}
-      :subj-prefix {:type "keyword"}
-      :subj-url {:type "keyword"}
-      :subj-url-domain {:type "keyword"}
-      :timestamp {:type "date" :format "epoch_millis"}
-      :source {:type "keyword"}
-      :experimental {:type "boolean"}
-      :relation-type {:type "keyword"}
-      :updated-date {:type "date" :format "epoch_millis"}
-      :updated {:type "keyword"}}}})
+  {event-type-name
+   {:dynamic false
+    :properties mapping-properties}
+  latest-type-name
+   {:dynamic false
+    :properties mapping-properties}})
 
 (def connection (delay
   (s/client {:hosts [(:query-elastic-uri env)]})))
@@ -79,22 +89,11 @@
 (defn update-mappings
   []
   "Update mappings in-place."
-  (s/request @connection {:url (str index-name "/" type-name "/_mapping")
+  (s/request @connection {:url (str index-name "/_mapping")
                           :method :post
                           :body mappings}))
-
 (defn close! []
   (s/close! @connection))
-
-(defn insert-prepared-event
-  "Insert Event with string keys in index-ready format."
-  [event]
-  (when-not event (throw (new IllegalArgumentException "No Event supplied")))
-  (let [id (:id event)]
-    (when-not id (throw (new IllegalArgumentException "No ID supplied")))
-    (s/request @connection {:url (str index-name "/" type-name "/" id)
-                            :method :post
-                            :body event})))
 
 (defn transform-for-index
   "Transform an Event with string keys into an Elastic document."
@@ -157,32 +156,55 @@
      :source (event "source_id")
      ; Any value in this field means true, default to false.
      :experimental (if (event "experimental") true false)
+
+     ; both :timestamp and :updated-date are used for the 'latest' type.
      :timestamp (coerce/to-long (parse-date (get event "timestamp")))
      :updated-date (when-let [date (get event "updated_date")] (coerce/to-long (parse-date date)))
      :updated (event "updated")}))
 
-(defn insert-event
-  "Insert Event with string keys."
-  [event]
-  (when-not event (throw (new IllegalArgumentException "No Event supplied")))
-  (insert-prepared-event (transform-for-index event)))
+(defn id-for-event-latest
+  [transformed-event]
+  ; Currently need to bodge wikipedia.
+  (cr-str/md5
+    (str
+      (condp = (:source transformed-event)
+        "wikipedia" (:subj-url transformed-event)
+        (:subj-id transformed-event))
+      "~"
+      (:obj-id transformed-event))))
 
 (defn insert-events
   [events]
   "Insert a batch of Events with string keys."
   (when-not (empty? events)
     (let [transformed (map transform-for-index events)
-          chunks (s/chunks->body (mapcat (fn [event]
-                           [{:index {:_index index-name
-                                    :_type type-name
-                                    :_id (:id event)}}
+          event-chunks (s/chunks->body (mapcat (fn [event]
+                          [{:index {:_index index-name
+                                     :_type event-type-name
+                                     :_id (:id event)}}
+                           event]) transformed))
+          
+          latest-chunks (s/chunks->body (mapcat (fn [event]
+                          [{:index {:_index index-name
+                                    :_type latest-type-name
+                                    ; Use the most recent date for which there was any activity.
+                                    :_version (or (:updated-date event) (:timestamp event))
+                                    :_version_type "external"
+                                    :_id (id-for-event-latest event)}}
                             event]) transformed))]
-      (s/request @connection {:url (str index-name "/" type-name "/_bulk")
+      
+      (s/request @connection {:url (str index-name "/" event-type-name "/_bulk")
                               :method :post
-                              :body  chunks}))))
+                              :body event-chunks})
+
+      ; The result for conflicts will be 40x, but we can safely ignore this.
+      ; If we inserted an older version of an Event, we deliebrately want it to be igonred.
+      (s/request @connection {:url (str index-name "/" latest-type-name "/_bulk")
+                              :method :post
+                              :body latest-chunks}))))
 
 (defn search-query
-  [query page-size search-after-timestamp search-after-id]
+  [query type-name page-size search-after-timestamp search-after-id]
   (let [search-after-timestamp (or search-after-timestamp 0)
         search-after-id (or search-after-id "")
         body {:size page-size
@@ -198,7 +220,7 @@
 
 (defn count-query
   "Get list of original Events by the query."
-  [query]
+  [query type-name]
   (let [body {:query query}
         result (s/request @connection {:url (str index-name "/" type-name "/_count")
                                        :body body})]
@@ -206,7 +228,7 @@
 
 (defn get-by-id
   "Get original Event by ID."
-  [id]
+  [id type-name]
   (try
     (let [result (s/request @connection
                             {:url (str index-name "/" type-name "/" id)
@@ -217,7 +239,7 @@
 
 (defn get-by-id-full
   "Get full Elastic entry by ID."
-  [id]
+  [id type-name]
   (try
     (let [result (s/request @connection
                             {:url (str index-name "/" type-name "/" id)
@@ -228,7 +250,7 @@
 
 (defn alternative-ids-exist
   "From a list of alternative IDs, find the ones that intersect with Subject alternative IDs."
-  [alternative-ids]
+  [alternative-ids type-name]
   (let [query {:query {:bool {:filter {:terms {:subj-alternative-id alternative-ids}}}}}
         result (s/request @connection
                           {:url (str index-name "/" type-name "/_search")

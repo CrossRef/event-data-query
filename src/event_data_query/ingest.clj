@@ -143,9 +143,11 @@
                                  (log/info "Fetch archive prefix URL " url)
                                  (try-try-again
                                    {:sleep 30000 :tries 10}
-                                   #(client/get url {:as :stream
+                                   (fn []
+                                    (log/info "Attempt retrieve" url)
+                                    (client/get url {:as :stream
                                                      :timeout 900000
-                                                     :headers {"Authorization" (str "Bearer " (:query-jwt env))}}))) prefix-urls)
+                                                     :headers {"Authorization" (str "Bearer " (:query-jwt env))}})))) prefix-urls)
             events (mapcat #(with-open [body (io/reader (:body %))]
                               (let [stream (cheshire/parse-stream body)]
                                 (get stream "events"))) api-results)
