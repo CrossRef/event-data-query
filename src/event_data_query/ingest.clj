@@ -139,18 +139,25 @@
     (doseq [date date-range]
       (let [date-str (clj-time-format/unparse ymd-format date)
             prefix-urls (map #(str (:query-event-bus-base env) "/events/archive/" date-str "/" %) prefixes)
-            api-results (pmap (fn [url]
-                                 (log/info "Fetch archive prefix URL " url)
-                                 (try-try-again
-                                   {:sleep 30000 :tries 10}
-                                   (fn []
-                                    (log/info "Attempt retrieve" url)
-                                    (client/get url {:as :stream
-                                                     :timeout 900000
-                                                     :headers {"Authorization" (str "Bearer " (:query-jwt env))}})))) prefix-urls)
-            events (mapcat #(with-open [body (io/reader (:body %))]
-                              (let [stream (cheshire/parse-stream body)]
-                                (get stream "events"))) api-results)
+            api-results (pmap
+                          (fn [url]
+                            (log/info "Fetch archive prefix URL " url)
+                            (try-try-again
+                              {:sleep 30000 :tries 10}
+                              (fn []
+                               (log/info "Attempt retrieve" url)
+                               (let [response (client/get url
+                                                {:as :stream
+                                                 :timeout 900000
+                                                 :headers
+                                                   {"Authorization"
+                                                   (str "Bearer " (:query-jwt env))}})]
+                                     (with-open [body (io/reader (:body response))]
+                                       (let [stream (cheshire/parse-stream body)]
+                                         (get stream "events")))))))
+                          prefix-urls)
+
+            events (mapcat identity api-results)
             event-chunks (partition-all insert-chunk-size events)]
         (doseq [chunk event-chunks]
           (swap! total-count #(+ % (count chunk)))
