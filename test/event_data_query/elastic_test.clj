@@ -106,3 +106,27 @@
           processed (elastic/transform-for-index input)]
 
       (is (= (:experimental processed) false) ""))))
+
+(def aggregation-response
+  {:source
+    {:doc_count_error_upper_bound 0,
+     :sum_other_doc_count 199230,
+     :buckets [{:key "wikipedia", :doc_count 266027}]}
+   :relation-type
+    {:doc_count_error_upper_bound 0,
+     :sum_other_doc_count 329463,
+     :buckets [{:key "references", :doc_count 135794}
+               {:key "disparages", :doc_count 66}]}})
+
+(def expected-response
+  {:source {:value-count 1
+            :values {"wikipedia" 266027}}
+   :relation-type {:value-count 2
+                   :values {"references" 135794
+                            "disparages" 66}}})
+
+(deftest aggregation-results
+  (testing "Aggregation result correctly parsed"
+    (is (= (elastic/parse-aggregation-response aggregation-response)
+           expected-response))))
+

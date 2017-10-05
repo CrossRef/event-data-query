@@ -4,6 +4,7 @@
             [event-data-query.elastic :as elastic]
             [event-data-query.parameters :as parameters]
             [event-data-query.query :as query]
+            [event-data-query.facet :as facet]
             [event-data-common.jwt :as jwt]
             [config.core :refer [env]]
             [clj-time.core :as clj-time]
@@ -70,36 +71,43 @@
                                (try-parse-int (get-in ctx [:request :params "rows"]))
                                default-page-size)
 
-                        filters (when-let [params (get-in ctx [:request :params "filter"])] (parameters/parse params keyword))
-                        
+                        filters (when-let [params (get-in ctx [:request :params "filter"])]
+                                  (parameters/parse params keyword))
 
-                        ; The from-updated-date parameter is special so it gets its own query parameter (outside filter).
-                        ; But we merge it in with the filter params at this point.
-                        filters (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
-                                (assoc filters :from-updated-date updated-date)
-                                filters)
+                        facets (when-let [params (get-in ctx [:request :params "facet"])]
+                                 (parameters/parse params identity))]
 
-                        query (query/build-filter-query filters)
-
-                        ; Get the whole event that is represented by the cursor ID. If supplied.
-                        cursor-event (when-let [event-id (let [cursor-val (get-in ctx [:request :params "cursor"])]
-                                                           (when-not (clojure.string/blank? cursor-val)
-                                                             cursor-val))]
-                                       (let [event (elastic/get-by-id-full event-id)]
-                                        (when-not event
-                                          (throw (new IllegalArgumentException "Invalid cursor supplied.")))
-                                        event))]
-
-                    ; This may throw.
+                    ; These may throw.
                     (query/validate-filter-keys filters)
+                    (facet/validate facets)
 
-                    (log/info "Got filters" filters)
-                    (log/info "Execute query" query)
+                    (let [; The from-updated-date parameter is special so it gets its own query parameter (outside filter).
+                          ; But we merge it in with the filter params at this point.
+                          filters (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
+                                  (assoc filters :from-updated-date updated-date)
+                                  filters)
+
+                          query (query/build-filter-query filters)
+
+                          facet-query (facet/build-facet-query facets)
+
+                          ; Get the whole event that is represented by the cursor ID. If supplied.
+                          cursor-event (when-let [event-id (let [cursor-val (get-in ctx [:request :params "cursor"])]
+                                                             (when-not (clojure.string/blank? cursor-val)
+                                                               cursor-val))]
+                                         (let [event (elastic/get-by-id-full event-id)]
+                                          (when-not event
+                                            (throw (new IllegalArgumentException "Invalid cursor supplied.")))
+                                          event))]
+
+                    (log/info "Got filters:" filters "facet:" facets)
+                    (log/info "Execute query:" query "facet:" facet-query)
 
                     [false
                      {::rows rows
                       ::query query
-                      ::cursor-event cursor-event}])
+                      ::facet-query facet-query
+                      ::cursor-event cursor-event}]))
 
                   (catch [:type :validation-failure] {:keys [message type subtype]}
                     [true {::error-type type
@@ -110,13 +118,28 @@
                     [true {::error-message (.getMessage ex)}])))
 
   :handle-ok (fn [ctx]
-               (let [events (elastic/search-query (::query ctx)
-                                                  type-name
-                                                  (::rows ctx)
-                                                  (-> ctx ::cursor-event :timestamp)
-                                                  (-> ctx ::cursor-event :id))
+               (let [; facet-query can be null if not supplied.
+                     ; we don't want to show a nil result for facets if there was no facet query supplied
+                     facet-query (::facet-query ctx)
+                      [events
+                      facet-results] (elastic/search-query
+                                       (::query ctx)
+                                       facet-query
+                                       type-name
+                                       (::rows ctx)
+                                       (-> ctx ::cursor-event :timestamp)
+                                       (-> ctx ::cursor-event :id))
                      total-results (elastic/count-query (::query ctx) type-name)
-                     next-cursor-id (-> events last :id)]
+                     next-cursor-id (-> events last :id)
+
+                     message {:next-cursor next-cursor-id
+                              :total-results total-results
+                              :items-per-page (::rows ctx)
+                              :events (map export-event events)}
+
+                      message (if facet-query
+                                (assoc message :facets facet-results)
+                                message)]
                 
                 (when (:status-service env)
                   (status/send! "query" "serve" "event" (count events))
@@ -124,11 +147,11 @@
 
                 {:status "ok"
                  :message-type "event-list"
-                 :message {
-                   :next-cursor next-cursor-id
-                   :total-results total-results
-                   :items-per-page (::rows ctx)
-                   :events (map export-event events)}}))
+                 :message message}))
+  
+  :handle-exception (fn [ctx]
+    {:status "failed"
+     :message "An internal error occurred. If you see this message repeatedly, please contact us."})
 
   ; Content negotiation doesn't work for this handler.
   ; https://github.com/clojure-liberator/liberator/issues/94

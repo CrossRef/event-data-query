@@ -203,20 +203,50 @@
                               :method :post
                               :body latest-chunks}))))
 
+(defn value-sorted-map
+  [input]
+  (into (sorted-map-by (fn [a b]
+                     (compare [(get input b) b]
+                              [(get input a) a]))) input))
+
+(defn parse-aggregation-response
+  "Parse the :aggregations part of an ElasticSearch response."
+  [result]
+  (into {}
+    (map
+      (fn [[nom info]]
+        [nom {:value-count (-> info :buckets count)
+              ; Sort values as they go into the hash-map.
+              :values (value-sorted-map (into {} (map (juxt :key :doc_count) (:buckets info))))}])
+      result)))
+
 (defn search-query
-  [query type-name page-size search-after-timestamp search-after-id]
+  [query facet-query type-name page-size search-after-timestamp search-after-id]
   (let [search-after-timestamp (or search-after-timestamp 0)
-        search-after-id (or search-after-id "")
-        body {:size page-size
-               :sort [{:timestamp "asc"} {:_uid "desc"}]
-               :query query
-               :search_after [search-after-timestamp search-after-id]}
-        result (s/request @connection
-                          {:url (str index-name "/" type-name "/_search")
-                           :method :post
-                           :body body})
-        events (->> result :body :hits :hits (map (comp :event :_source)))]
-    events))
+      search-after-id (or search-after-id "")
+      
+      ; merged-query (merge query facet-query)
+      body {:size page-size
+             :sort [{:timestamp "asc"} {:_uid "desc"}]
+             :query query
+             :aggregations (or facet-query {})
+             :search_after [search-after-timestamp search-after-id]}]
+    (try
+      (let [result (s/request
+                     @connection
+                     {:url (str index-name "/" type-name "/_search")
+                      :method :post
+                      :body body})
+            events (->> result :body :hits :hits (map (comp :event :_source)))
+            facet-results (when facet-query (-> result :body :aggregations parse-aggregation-response))]
+        [events facet-results])
+    
+    (catch Exception e
+      (log/error "Exception from ElasticSearch")
+      (log/error "Sent:" body)
+      (log/error "Exception:" e)
+      ; Rethrow so Liberator returns a 500.
+      (throw (new Exception "ElasticSearch error"))))))
 
 (defn count-query
   "Get list of original Events by the query."
