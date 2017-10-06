@@ -63,6 +63,16 @@
    {:dynamic false
     :properties mapping-properties}})
 
+(def event-mappings
+  {event-type-name
+   {:dynamic false
+    :properties mapping-properties}})
+
+(def latest-mappings
+  {latest-type-name
+   {:dynamic false
+    :properties mapping-properties}})
+
 (def connection (delay
   (s/client {:hosts [(:query-elastic-uri env)]})))
 
@@ -89,9 +99,12 @@
 (defn update-mappings
   []
   "Update mappings in-place."
-  (s/request @connection {:url (str index-name "/_mapping")
+  (s/request @connection {:url (str index-name "/" event-type-name "/_mapping")
                           :method :post
-                          :body mappings}))
+                          :body event-mappings})
+  (s/request @connection {:url (str index-name "/" latest-type-name "/_mapping")
+                          :method :post
+                          :body latest-mappings}))
 (defn close! []
   (s/close! @connection))
 

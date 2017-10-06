@@ -95,7 +95,7 @@
                           cursor-event (when-let [event-id (let [cursor-val (get-in ctx [:request :params "cursor"])]
                                                              (when-not (clojure.string/blank? cursor-val)
                                                                cursor-val))]
-                                         (let [event (elastic/get-by-id-full event-id)]
+                                         (let [event (elastic/get-by-id-full event-id type-name)]
                                           (when-not event
                                             (throw (new IllegalArgumentException "Invalid cursor supplied.")))
                                           event))]
@@ -166,7 +166,7 @@
   :available-media-types ["application/json"]
   
   :exists? (fn [ctx]
-            (let [the-event (elastic/get-by-id id)
+            (let [the-event (elastic/get-by-id id elastic/event-type-name)
                   deleted (= (get the-event :updated) "deleted")
                   ; User can request to show anyway
                   include-deleted (= (get-in ctx [:request :params "include-deleted"]) "true")]
@@ -196,7 +196,7 @@
                                 (get-in ctx [:request :params "ids"] "")
                                 ","))
                
-                    matches (elastic/alternative-ids-exist ids)]
+                    matches (elastic/alternative-ids-exist ids elastic/event-type-name)]
                 {:alternative-ids matches})))
 
 (defresource home
