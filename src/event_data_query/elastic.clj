@@ -15,8 +15,8 @@
 ; Index of all Events
 (def event-type-name "event")
 
-; Index of latest version of Event for each subj_id, obj_id
-(def latest-type-name "latest")
+; Index of distinct latest version of Event for each subj_id, obj_id
+(def distinct-type-name "latest")
 
 (def full-format-no-ms (:date-time-no-ms clj-time-format/formatters))
 (def full-format (:date-time clj-time-format/formatters))
@@ -59,7 +59,7 @@
   {event-type-name
    {:dynamic false
     :properties mapping-properties}
-  latest-type-name
+  distinct-type-name
    {:dynamic false
     :properties mapping-properties}})
 
@@ -68,8 +68,8 @@
    {:dynamic false
     :properties mapping-properties}})
 
-(def latest-mappings
-  {latest-type-name
+(def distinct-mappings
+  {distinct-type-name
    {:dynamic false
     :properties mapping-properties}})
 
@@ -102,9 +102,9 @@
   (s/request @connection {:url (str index-name "/" event-type-name "/_mapping")
                           :method :post
                           :body event-mappings})
-  (s/request @connection {:url (str index-name "/" latest-type-name "/_mapping")
+  (s/request @connection {:url (str index-name "/" distinct-type-name "/_mapping")
                           :method :post
-                          :body latest-mappings}))
+                          :body distinct-mappings}))
 (defn close! []
   (s/close! @connection))
 
@@ -170,12 +170,12 @@
      ; Any value in this field means true, default to false.
      :experimental (if (event "experimental") true false)
 
-     ; both :timestamp and :updated-date are used for the 'latest' type.
+     ; both :timestamp and :updated-date are used for the 'distinct' type.
      :timestamp (coerce/to-long (parse-date (get event "timestamp")))
      :updated-date (when-let [date (get event "updated_date")] (coerce/to-long (parse-date date)))
      :updated (event "updated")}))
 
-(defn id-for-event-latest
+(defn id-for-event-distinct
   [transformed-event]
   ; Currently need to bodge wikipedia.
   (cr-str/md5
@@ -197,13 +197,13 @@
                                      :_id (:id event)}}
                            event]) transformed))
           
-          latest-chunks (s/chunks->body (mapcat (fn [event]
+          distinct-chunks (s/chunks->body (mapcat (fn [event]
                           [{:index {:_index index-name
-                                    :_type latest-type-name
+                                    :_type distinct-type-name
                                     ; Use the most recent date for which there was any activity.
                                     :_version (or (:updated-date event) (:timestamp event))
                                     :_version_type "external"
-                                    :_id (id-for-event-latest event)}}
+                                    :_id (id-for-event-distinct event)}}
                             event]) transformed))]
       
       (s/request @connection {:url (str index-name "/" event-type-name "/_bulk")
@@ -212,9 +212,9 @@
 
       ; The result for conflicts will be 40x, but we can safely ignore this.
       ; If we inserted an older version of an Event, we deliebrately want it to be igonred.
-      (s/request @connection {:url (str index-name "/" latest-type-name "/_bulk")
+      (s/request @connection {:url (str index-name "/" distinct-type-name "/_bulk")
                               :method :post
-                              :body latest-chunks}))))
+                              :body distinct-chunks}))))
 
 (defn value-sorted-map
   [input]
@@ -234,25 +234,27 @@
       result)))
 
 (defn search-query
-  [query facet-query type-name page-size search-after-timestamp search-after-id]
-  (let [search-after-timestamp (or search-after-timestamp 0)
-      search-after-id (or search-after-id "")
-      
-      ; merged-query (merge query facet-query)
-      body {:size page-size
-             :sort [{:timestamp "asc"} {:_uid "desc"}]
-             :query query
-             :aggregations (or facet-query {})
-             :search_after [search-after-timestamp search-after-id]}]
+  "Issue search. Return ElasticSearch results, both as indexed documents and scoped into Events."
+  [query facet-query type-name page-size sort-criteria search-after-criteria]
+  (let [body {:size page-size
+              :sort sort-criteria
+              :query query
+              :aggregations (or facet-query {})
+              :search_after search-after-criteria}]
     (try
       (let [result (s/request
                      @connection
                      {:url (str index-name "/" type-name "/_search")
                       :method :post
                       :body body})
-            events (->> result :body :hits :hits (map (comp :event :_source)))
+            
+            ; Return both the documents as indexed and the source Events, for ease of use.
+            hits (->> result :body :hits :hits)
+            events (map (comp :event :_source) hits)
+
             facet-results (when facet-query (-> result :body :aggregations parse-aggregation-response))]
-        [events facet-results])
+
+        [events hits facet-results])
     
     (catch Exception e
       (log/error "Exception from ElasticSearch")

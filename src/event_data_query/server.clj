@@ -61,105 +61,216 @@
 
 (def default-page-size 1000)
 
-(defresource events
-  [type-name]
-  :available-media-types ["application/json"]
-  
-  :malformed? (fn [ctx]
-                (try+
-                  (let [rows (or
-                               (try-parse-int (get-in ctx [:request :params "rows"]))
-                               default-page-size)
+(defn get-rows
+  [ctx]
+  (or (try-parse-int (get-in ctx [:request :params "rows"]))
+      default-page-size))
 
-                        filters (when-let [params (get-in ctx [:request :params "filter"])]
-                                  (parameters/parse params keyword))
+(defn get-filters
+      [ctx]
+      (when-let [params (get-in ctx [:request :params "filter"])]
+        (let [filters (parameters/parse params keyword)]
+          
+          ; Throws validation exception.
+          (query/validate-filter-keys filters)
 
-                        facets (when-let [params (get-in ctx [:request :params "facet"])]
-                                 (parameters/parse params identity))]
+          ; The from-updated-date parameter is special so it gets its own query parameter (outside filter).
+          ; But we merge it in with the filter params at this point.
+          (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
+            (assoc filters :from-updated-date updated-date)
+            filters))))
 
-                    ; These may throw.
-                    (query/validate-filter-keys filters)
-                    (facet/validate facets)
+(defn get-facets
+  [ctx]
+  (when-let [params (get-in ctx [:request :params "facet"])]
+    (let [facets (parameters/parse params identity)]
+    
+     ; Throws validation exception.
+     (facet/validate facets)
+     facets)))
 
-                    (let [; The from-updated-date parameter is special so it gets its own query parameter (outside filter).
-                          ; But we merge it in with the filter params at this point.
-                          filters (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
-                                  (assoc filters :from-updated-date updated-date)
-                                  filters)
+(defn get-cursor-value
+  [ctx]
+  (get-in ctx [:request :params "cursor"]))
 
-                          query (query/build-filter-query filters)
+(defn get-cursor-event
+  [ctx]
+  (when-let [event-id (not-empty (get-cursor-value ctx))]
+    (let [event (elastic/get-by-id-full event-id elastic/event-type-name)]
+      (when-not event
+        (throw (new IllegalArgumentException "Invalid cursor supplied.")))
+      event)))
 
-                          facet-query (facet/build-facet-query facets)
+(defn all-events-query
+  [ctx]
+  (elastic/search-query
+    (::query ctx)
+    (::facet-query ctx)
+    elastic/event-type-name
+    (::rows ctx)
+    [{:timestamp "asc"} {:_uid "desc"}]
+    [(or (-> ctx ::cursor-event :timestamp) 0) (or (-> ctx ::cursor-event :id) "")]))
 
-                          ; Get the whole event that is represented by the cursor ID. If supplied.
-                          cursor-event (when-let [event-id (let [cursor-val (get-in ctx [:request :params "cursor"])]
-                                                             (when-not (clojure.string/blank? cursor-val)
-                                                               cursor-val))]
-                                         (let [event (elastic/get-by-id-full event-id type-name)]
-                                          (when-not event
-                                            (throw (new IllegalArgumentException "Invalid cursor supplied.")))
-                                          event))]
+(defn distinct-events-query
+  [ctx]
+  (elastic/search-query
+  (::query ctx)
+  (::facet-query ctx)
+  elastic/distinct-type-name
+  (::rows ctx)
+  [{:_uid "asc"}]
+  ; Need to re-created the value of _uid, which is combination of 
+  ; type and _id.
+  [(str elastic/distinct-type-name "#" (or (::cursor-value ctx) ""))]))
 
-                    (log/info "Got filters:" filters "facet:" facets)
-                    (log/info "Execute query:" query "facet:" facet-query)
-
-                    [false
-                     {::rows rows
-                      ::query query
-                      ::facet-query facet-query
-                      ::cursor-event cursor-event}]))
-
-                  (catch [:type :validation-failure] {:keys [message type subtype]}
-                    [true {::error-type type
-                           ::error-subtype subtype
-                           ::error-message message}])
-                  
-                  (catch IllegalArgumentException ex
-                    [true {::error-message (.getMessage ex)}])))
-
-  :handle-ok (fn [ctx]
-               (let [; facet-query can be null if not supplied.
-                     ; we don't want to show a nil result for facets if there was no facet query supplied
-                     facet-query (::facet-query ctx)
-                      [events
-                      facet-results] (elastic/search-query
-                                       (::query ctx)
-                                       facet-query
-                                       type-name
-                                       (::rows ctx)
-                                       (-> ctx ::cursor-event :timestamp)
-                                       (-> ctx ::cursor-event :id))
-                     total-results (elastic/count-query (::query ctx) type-name)
-                     next-cursor-id (-> events last :id)
-
-                     message {:next-cursor next-cursor-id
-                              :total-results total-results
-                              :items-per-page (::rows ctx)
-                              :events (map export-event events)}
-
-                      message (if facet-query
-                                (assoc message :facets facet-results)
-                                message)]
-                
-                (when (:status-service env)
-                  (status/send! "query" "serve" "event" (count events))
-                  (status/send! "query" "serve" "request" 1))
-
-                {:status "ok"
-                 :message-type "event-list"
-                 :message message}))
-  
-  :handle-exception (fn [ctx]
+(def events-defaults
+  "Base for 'events' and 'distinct events' resources."
+  {:available-media-types ["application/json"]
+   
+   :handle-exception
+   (fn [ctx]
     {:status "failed"
      :message "An internal error occurred. If you see this message repeatedly, please contact us."})
 
-  ; Content negotiation doesn't work for this handler.
-  ; https://github.com/clojure-liberator/liberator/issues/94
-  :handle-malformed (fn [ctx]
-                      (json/write-str {:status "failed"
-                       :message-type (::error-type ctx)
-                       :message [{:type (::error-subtype ctx)
-                                  :message (::error-message ctx)}]})))
+   ; Content negotiation doesn't work for this handler.
+   ; https://github.com/clojure-liberator/liberator/issues/94
+   :handle-malformed (fn [ctx]
+                       (json/write-str {:status "failed"
+                                        :message-type (::error-type ctx)
+                                        :message [{:type (::error-subtype ctx)
+                                                  :message (::error-message ctx)}]}))})
+
+
+; 'events' has two different views
+; - 'all events' shows every Event that exists.
+; - 'distinct events' only shows one Events per distinct subj_id, obj_id pair.
+; Each is served from a different index.
+; In the 'events' index, the _id field is the object ID.
+; In the 'distinct' index, the _id field is the hash of (subj_id, obj_id)
+; For 'events' queries, Events are sorted by their timestamp, then by id.
+; For 'distinct' queries, Events are sorted by their hash id (_id)
+; Because of this, we pass in both 'sort' and 'search after' criteria to elastic/search-query
+; The _uid field is a combination of type and _id, e.g. "latest#12345". This is indexed where _id isn't.
+; Therefore, we use _uid to sort etc.
+
+(defresource all-events
+  []
+  events-defaults
+  :malformed?
+  (fn [ctx]
+    (try+
+      (let [rows (get-rows ctx)
+            filters (get-filters ctx)
+            facets (get-facets ctx)
+            query (query/build-filter-query filters)
+            facet-query (facet/build-facet-query facets)
+
+            ; Get the Event that corresponds to the cursor, if supplied.
+            cursor-event (get-cursor-event ctx)]
+
+        (log/info "Got filters:" filters "facet:" facets)
+        (log/info "Execute query:" query "facet:" facet-query)
+
+        [false
+         {::rows rows
+          ::query query
+          ::facet-query facet-query
+          ::cursor-event cursor-event}])
+
+      (catch [:type :validation-failure] {:keys [message type subtype]}
+        [true {::error-type type
+               ::error-subtype subtype
+               ::error-message message}])
+      
+      (catch IllegalArgumentException ex
+        [true {::error-message (.getMessage ex)}])))
+
+  :handle-ok
+  (fn [ctx]
+    (let [[events
+           hits
+           facet-results] (all-events-query ctx)
+           total-results (elastic/count-query (::query ctx) elastic/event-type-name)
+          
+          next-cursor-id (-> events last :id)
+ 
+          message {:next-cursor next-cursor-id
+                   :total-results total-results
+                   :items-per-page (::rows ctx)
+                   :events (map export-event events)}
+ 
+          ; facet-query can be null if not supplied.
+          ; we don't want to show a nil result for facets if there was no facet query supplied
+          message (if (::facet-query ctx)
+                     (assoc message :facets facet-results)
+                     message)]
+     
+     (when (:status-service env)
+       (status/send! "query" "serve" "event" (count events))
+       (status/send! "query" "serve" "request" 1))
+ 
+     {:status "ok"
+      :message-type "event-list"
+      :message message})))
+
+(defresource distinct-events
+  []
+  events-defaults
+
+  :malformed?
+  (fn [ctx]
+    (try+
+      (let [rows (get-rows ctx)
+            filters (get-filters ctx)
+            facets (get-facets ctx)
+            query (query/build-filter-query filters)
+            facet-query (facet/build-facet-query facets)
+
+            cursor-value (get-cursor-value ctx)]
+
+        (log/info "Got filters:" filters "facet:" facets)
+        (log/info "Execute query:" query "facet:" facet-query)
+
+        [false
+         {::rows rows
+          ::query query
+          ::facet-query facet-query
+          ::cursor-value cursor-value}])
+
+      (catch [:type :validation-failure] {:keys [message type subtype]}
+        [true {::error-type type
+               ::error-subtype subtype
+               ::error-message message}])
+      
+      (catch IllegalArgumentException ex
+        [true {::error-message (.getMessage ex)}])))
+
+  :handle-ok
+  (fn [ctx]
+    (let [[events hits facet-results] (distinct-events-query ctx)
+          total-results (elastic/count-query (::query ctx) elastic/distinct-type-name)
+         
+          next-cursor-id (-> hits last :_id)
+
+          message {:next-cursor next-cursor-id
+                   :total-results total-results
+                   :items-per-page (::rows ctx)
+                   :events (map export-event events)}
+
+          ; facet-query can be null if not supplied.
+          ; we don't want to show a nil result for facets if there was no facet query supplied
+          message (if (::facet-query ctx)
+                     (assoc message :facets facet-results)
+                     message)]
+
+    (when (:status-service env)
+      (status/send! "query" "serve" "event" (count events))
+      (status/send! "query" "serve" "request" 1))
+
+    {:status "ok"
+     :message-type "event-list"
+     :message message})))
+
 
 (defresource event
   [id]
@@ -208,8 +319,8 @@
 
 (defroutes app-routes
   (GET "/" [] (home))
-  (GET "/events" [] (events elastic/event-type-name))
-  (GET "/events/distinct" [] (events elastic/latest-type-name))
+  (GET "/events" [] (all-events))
+  (GET "/events/distinct" [] (distinct-events))
   (GET "/events/:id" [id] (event id))
   (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
 
