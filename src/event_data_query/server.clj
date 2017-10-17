@@ -39,7 +39,7 @@
             [liberator.representation :as representation]
             [ring.util.response :as ring-response]
             [overtone.at-at :as at-at]
-            [slingshot.slingshot :refer [try+]])
+            [slingshot.slingshot :refer [try+ throw+]])
   (:gen-class))
 
 (def event-data-homepage "https://www.crossref.org/services/event-data")
@@ -271,6 +271,83 @@
      :message-type "event-list"
      :message message})))
 
+(defn get-interval
+  [ctx]
+  (condp = (get-in ctx [:request :params "interval"])
+    "day" :day
+    "week" :week
+    "month" :month
+    "year" :year
+    (throw+ {:type :validation-failure
+             :subtype :interval-unrecognised
+             :message "Value of time interval unrecognised. Supply 'interval' value of 'day', 'week', 'month' or 'year'"})))
+
+(defn get-field
+  [ctx]
+  (condp = (get-in ctx [:request :params "field"])
+    "collected" :timestamp
+    "occurred" :occurred
+    "updated-date" :updated-date
+    (throw+ {:type :validation-failure
+             :subtype :field-unrecognised
+             :message "Value of 'field' unrecognised. Supply 'field' value of 'collected', 'occurred' or 'updated-date'"})))
+
+
+(defresource events-time
+  [elastic-type]
+  :available-media-types ["text/csv"]
+  :malformed?
+  (fn [ctx]
+    (try+
+      (let [filters (get-filters ctx)
+            query (query/build-filter-query filters)
+            interval (get-interval ctx)
+            field (get-field ctx)]
+
+        (log/info "All Events by time filters:" filters " with interval:" interval " on field:" field)
+        (log/info "All Events by time query:" query)
+
+        [false
+         {::interval interval
+          ::query query
+          ::field field}])
+
+      (catch [:type :validation-failure] {:keys [message type subtype]}
+        [true {::error-type type
+               ::error-subtype subtype
+               ::error-message message}])))
+
+  ; Handle this in 'exists' in case there's no data all for the range.
+  ; Unlikely, but we can't produce an empty CSV file.
+  :exists?
+  (fn [ctx]
+    (let [results (elastic/time-facet-query
+                    (::query ctx)
+                    elastic-type
+                    (::field ctx)
+                    (::interval ctx))
+          ; Need to massage to with with Liberator's representations requirements.
+          response (map (fn [[d v]] {:date d :value v}) results)]
+      
+      (if (empty? response)
+        false
+        [true {::response response}])))
+
+  :handle-ok
+  (fn [ctx]
+    (::response ctx))
+
+  :handle-not-found
+  (fn [ctx]
+    (json/write-str {:status "not-found"}))
+
+   ; Content negotiation doesn't work for this handler.
+   ; https://github.com/clojure-liberator/liberator/issues/94
+   :handle-malformed (fn [ctx]
+                       (json/write-str {:status "failed"
+                                        :message-type (::error-type ctx)
+                                        :message [{:type (::error-subtype ctx)
+                                                  :message (::error-message ctx)}]})))
 
 (defresource event
   [id]
@@ -295,14 +372,12 @@
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
 
-(def x (atom nil))
 
 (defresource alternative-ids-check
   []
   :allowed-methods [:get]
   :available-media-types ["application/json"]
   :handle-ok (fn [ctx]
-    (reset! x ctx)
                (let [ids (vec (.split
                                 (get-in ctx [:request :params "ids"] "")
                                 ","))
@@ -321,6 +396,10 @@
   (GET "/" [] (home))
   (GET "/events" [] (all-events))
   (GET "/events/distinct" [] (distinct-events))
+
+  (GET "/events/time.csv" [] (events-time elastic/event-type-name))
+  (GET "/events/distinct/time.csv" [] (events-time elastic/distinct-type-name))
+
   (GET "/events/:id" [id] (event id))
   (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
 

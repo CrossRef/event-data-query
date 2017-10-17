@@ -128,7 +128,7 @@
         subj-id-url (try (new URL (get event "subj_id"))
                      (catch MalformedURLException _ nil))
 
-        obj-id-url (try (new URL (get event "subj_id"))
+        obj-id-url (try (new URL (get event "obj_id"))
                      (catch MalformedURLException _ nil))
 
         ; subj.url and obj.url are optional and may be malformed
@@ -270,6 +270,50 @@
         result (s/request @connection {:url (str index-name "/" type-name "/_count")
                                        :body body})]
     (-> result :body :count)))
+
+
+(def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
+
+(defn parse-time-aggregation-response
+  [response]
+
+  (let [rows (-> response :time-hist :buckets)
+        pairs (map #(vector
+                      (clj-time-format/unparse
+                        ymd-format
+                        (coerce/from-long (Long/parseLong (:key_as_string %))))
+                      
+                      (:doc_count %)) rows)]
+  pairs))
+
+(defn time-facet-query
+  "Time-facet the query by all three date fields."
+  [query type-name field interval]
+  {:pre [(#{:timestamp :occurred :updated-date} field)
+         (#{:day :week :month :year} interval)]}
+
+  (let [body {:size 0
+              :query query
+              :aggregations {"time-hist" {"date_histogram" {:field field :interval interval}}}}]
+
+    (try
+      (let [result (s/request
+                     @connection
+                     {:url (str index-name "/" type-name "/_search")
+                      :method :post
+                      :body body})
+            
+            facet-results (-> result :body :aggregations parse-time-aggregation-response)]
+
+        facet-results)
+    
+    (catch Exception e
+      (log/error "Exception from ElasticSearch")
+      (log/error "Sent:" body)
+      (log/error "Exception:" e)
+      ; Rethrow so Liberator returns a 500.
+      (throw (new Exception "ElasticSearch error"))))))
+
 
 (defn get-by-id
   "Get original Event by ID."
