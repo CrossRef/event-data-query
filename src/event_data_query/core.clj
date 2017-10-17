@@ -19,7 +19,13 @@
     "replicate-continuous" (ingest/replicate-continuous)
     "replicate-backfill-days" (do (ingest/replicate-backfill-days (Integer/parseInt (second args)))
                                   (close))
-    "ingest-kafka" (ingest/run-ingest-kafka)
+    
+    "ingest-kafka" (try
+                     (ingest/run-ingest-kafka)
+                     (catch Exception ex
+                        (do (log/error "Error caught, exiting" ex)
+                            (System/exit 1))))
+
     "bus-backfill-days" (do (ingest/bus-backfill-days (Integer/parseInt (second args)))
                             (close))
   (log/error "Didn't recognise command" (first args) ". Have another go.")))

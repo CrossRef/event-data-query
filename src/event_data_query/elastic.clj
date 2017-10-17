@@ -6,6 +6,7 @@
              [clj-time.coerce :as coerce]
              [clj-time.format :as clj-time-format]
              [clojure.tools.logging :as log]
+             [robert.bruce :refer [try-try-again]]
              [config.core :refer [env]])
    (:import [java.net URL MalformedURLException]
             [org.elasticsearch.client ResponseException]))
@@ -212,9 +213,22 @@
 
       ; The result for conflicts will be 40x, but we can safely ignore this.
       ; If we inserted an older version of an Event, we deliebrately want it to be igonred.
-      (s/request @connection {:url (str index-name "/" distinct-type-name "/_bulk")
-                              :method :post
-                              :body distinct-chunks}))))
+      (try-try-again
+        {:sleep 30000 :tries 5}
+        #(let [result (s/request
+                         @connection {:url (str index-name "/" distinct-type-name "/_bulk")
+                         :method :post
+                         :body distinct-chunks})
+              items (-> result :body :items)
+              problem-items (remove (fn [item]
+                                (-> item :index :status #{409 201 200}))
+                              items)]
+          
+          ; If there is an HTTP exception, this will be handled by try-try-again and then an exception will be thrown.
+          ; If there is an error within the request (i.e. an individual Event document), re-trying won't help
+          ; so just report and keep going.
+          (when (not-empty problem-items)
+            (log/error "Unexpected response items" problem-items)))))))
 
 (defn value-sorted-map
   [input]
