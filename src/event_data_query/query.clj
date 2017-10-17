@@ -147,10 +147,10 @@
 
 ; others.
 
-(defn q-relation
+(defn q-relation-type
   [params]
-  (when-let [relation (:relation params)]
-    {:term {:relation-type relation}}))
+  (when-let [relation-type (:relation-type params)]
+    {:term {:relation-type relation-type}}))
 
 (defn q-source
   [params]
@@ -184,7 +184,7 @@
    :obj.url.domain q-obj-url-domain
    :subj.alternative-id q-subj-alternative-id
    :obj.alternative-id q-obj-alternative-id
-   :relation-type q-relation
+   :relation-type q-relation-type
    :experimental q-experimental
    :source q-source}) 
 
