@@ -50,11 +50,13 @@
 
 (defn ingest-many
   "Ingest many event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
-  [events]
-  (if (nil? @source-whitelist)
-    (elastic/insert-events events)
-    (elastic/insert-events 
-      (filter #(@source-whitelist (get % "source_id")) events))))
+  ([events] (ingest-many events false))
+  ([events force?]
+    (if (nil? @source-whitelist)
+      (elastic/insert-events events force?)
+      (elastic/insert-events 
+        (filter #(@source-whitelist (get % "source_id")) events)
+        force?))))
 
 (def replica-collected-url-default
   "https://query.eventdata.crossref.org/events?filter=from-collected-date:%1$s&cursor=%2$s&rows=10000")
@@ -130,7 +132,7 @@
   (map #(apply str %) (combinatorics/selections hexadecimal length)))
 
 (defn bus-backfill-days
-  [num-days]
+  [num-days force?]
   (let [prefixes (event-bus-prefixes-length event-bus-archive-prefix-length)
         end-date (clj-time/now)
         start-date (clj-time/minus end-date (clj-time/days num-days))
@@ -162,7 +164,7 @@
         (doseq [chunk event-chunks]
           (swap! total-count #(+ % (count chunk)))
           (log/info "Ingested" @total-count "this session, currently Downloading" date)
-          (ingest-many chunk))
+          (ingest-many chunk force?))
         (log/info "Done all chunks for day.")))
     (log/info "Done all days.")))
 

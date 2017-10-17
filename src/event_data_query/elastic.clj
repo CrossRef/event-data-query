@@ -188,7 +188,8 @@
       (:obj-id transformed-event))))
 
 (defn insert-events
-  [events]
+  ([events] (insert-events events false))
+  ([events force?]
   "Insert a batch of Events with string keys."
   (when-not (empty? events)
     (let [transformed (map transform-for-index events)
@@ -203,7 +204,7 @@
                                     :_type distinct-type-name
                                     ; Use the most recent date for which there was any activity.
                                     :_version (or (:updated-date event) (:timestamp event))
-                                    :_version_type "external"
+                                    :_version_type (if force? "force" "external")
                                     :_id (id-for-event-distinct event)}}
                             event]) transformed))]
       
@@ -223,12 +224,14 @@
               problem-items (remove (fn [item]
                                 (-> item :index :status #{409 201 200}))
                               items)]
+
+              (prn (map (fn [item] (-> item :index :status)) items))
           
           ; If there is an HTTP exception, this will be handled by try-try-again and then an exception will be thrown.
           ; If there is an error within the request (i.e. an individual Event document), re-trying won't help
           ; so just report and keep going.
           (when (not-empty problem-items)
-            (log/error "Unexpected response items" problem-items)))))))
+            (log/error "Unexpected response items" problem-items))))))))
 
 (defn value-sorted-map
   [input]
