@@ -1,4 +1,4 @@
-(defproject event-data-query "0.1.26"
+(defproject event-data-query "0.1.27"
   :description "Event Data Query"
   :url "http://eventdata.crossref.org/"
   :license {:name "MIT License"
@@ -30,5 +30,5 @@
                  [ring/ring-servlet "1.5.0"]]
   :main ^:skip-aot event-data-query.core
   :target-path "target/%s"
-  :jvm-opts ["-Duser.timezone=UTC"]
+  :jvm-opts ["-Duser.timezone=UTC" "-Xmx4G"]
   :profiles {:uberjar {:aot :all}})
