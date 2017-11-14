@@ -1,4 +1,4 @@
-(defproject event-data-query "0.1.28"
+(defproject event-data-query "0.1.30"
   :description "Event Data Query"
   :url "http://eventdata.crossref.org/"
   :license {:name "MIT License"
@@ -16,8 +16,6 @@
                  [org.apache.httpcomponents/httpclient "4.5.2"]
                  [org.apache.commons/commons-io "1.3.2"]
                  [org.clojure/tools.logging "0.3.1"]
-                 [org.apache.logging.log4j/log4j-core "2.6.2"]
-                 [org.slf4j/slf4j-simple "1.7.21"]
                  [clojurewerkz/quartzite "2.0.0"]
                  [cheshire "5.7.0"]
                  [slingshot "0.12.2"]
@@ -28,6 +26,7 @@
                  [ring "1.5.0"]
                  [ring/ring-jetty-adapter "1.5.0"]
                  [ring/ring-servlet "1.5.0"]]
+  ; :exclusions [org.slf4j/slf4j-simple]
   :main ^:skip-aot event-data-query.core
   :target-path "target/%s"
   :jvm-opts ["-Duser.timezone=UTC" "-Xmx4G"]

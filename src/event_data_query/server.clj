@@ -1,6 +1,5 @@
 (ns event-data-query.server
- (:require  [event-data-common.status :as status]
-            [event-data-query.ingest :as ingest]
+ (:require  [event-data-query.ingest :as ingest]
             [event-data-query.elastic :as elastic]
             [event-data-query.parameters :as parameters]
             [event-data-query.query :as query]
@@ -204,11 +203,7 @@
           message (if (::facet-query ctx)
                      (assoc message :facets facet-results)
                      message)]
-     
-     (when (:status-service env)
-       (status/send! "query" "serve" "event" (count events))
-       (status/send! "query" "serve" "request" 1))
- 
+      
      {:status "ok"
       :message-type "event-list"
       :message message})))
@@ -262,10 +257,6 @@
           message (if (::facet-query ctx)
                      (assoc message :facets facet-results)
                      message)]
-
-    (when (:status-service env)
-      (status/send! "query" "serve" "event" (count events))
-      (status/send! "query" "serve" "request" 1))
 
     {:status "ok"
      :message-type "event-list"
@@ -362,9 +353,6 @@
                                   (not deleted))) {::event the-event}]))
 
   :handle-ok (fn [ctx]
-              (when (:status-service env)
-                (status/send! "query" "serve" "event" 1)
-                (status/send! "query" "serve" "request" 1))
               {:status "ok"
                :message-type "event"
                :message {
@@ -419,8 +407,5 @@
 
 (defn run []
   (let [port (Integer/parseInt (:query-port env))]
-    (when (:status-service env)
-      (at-at/every 10000 #(status/send! "query" "heartbeat" "tick" 1) schedule-pool))
-
     (log/info "Start server on " port)
     (server/run-server app {:port port})))

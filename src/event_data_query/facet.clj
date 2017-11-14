@@ -14,7 +14,10 @@
    "subj-id.domain" "subj-id-domain"
    "obj-id.domain" "obj-id-domain"
    "subj.url.domain" "subj-url-domain"
-   "obj.url.domain" "obj-url-domain"})
+   "obj.url.domain" "obj-url-domain"
+   "subj-id.doi" "subj-doi"
+   "obj-id.doi" "obj-doi"
+   })
 
 (defn validate
   "Validate that all facet keys are recognised. Return nil or throw exception for first error."

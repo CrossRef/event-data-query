@@ -145,11 +145,6 @@
     (is (= (query/q-obj-alternative-id {:obj.alternative-id "12345"})
             {:term {:obj-alternative-id "12345"}}))))
 
-(deftest q-relation
-  (testing "q-relation should query for relation field"
-    (is (= (query/q-relation {:relation "considers"})
-            {:term {:relation-type "considers"}}))))
-
 (deftest q-source
   (testing "q-source should query for source field"
     (is (= (query/q-source {:source "doi-chat"})
