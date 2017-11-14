@@ -48,15 +48,48 @@
 (def source-whitelist
   (delay (retrieve-source-whitelist)))
 
+(defn retrieve-prefix-whitelist
+  "Retrieve set of DOI prefixes as a set according to config, or nil if not configured."
+  []
+  (when-let [artifact-name (:query-prefix-whitelist-artifact-name env)]
+    (let [prefixes (-> artifact-name artifact/fetch-latest-artifact-string (clojure.string/split #"\n") set)]
+      (log/info "Retrieved " (count prefixes) "prefixes" (type prefixes))
+      prefixes)))
+
+(def prefix-whitelist
+  (delay (retrieve-prefix-whitelist)))
+
+(defn filter-prefix-whitelist
+  [events]
+  (if-let [prefixes (deref prefix-whitelist)]
+    (filter #(let [subj-id (get % "subj_id")
+                   obj-id (get % "obj_id")]
+             (or 
+                 ; There's no DOI in either subj or obj position, e.g. Wikipedia is-version-of Event.
+                 (not (or (cr-doi/well-formed subj-id)
+                          (cr-doi/well-formed obj-id)))
+                 ; Or there's a whitelisted DOI prefix in the subject or object.
+                 (prefixes (cr-doi/get-prefix subj-id))
+                 (prefixes (cr-doi/get-prefix obj-id)))) events)
+    events))
+
+(defn filter-source-whitelist
+  [events]
+  (if-let [sources (deref source-whitelist)]
+    (filter #(sources (get % "source_id")) events)
+    events))
+
+(defn filter-whitelists
+  [events]
+  (let [filtered (-> events filter-source-whitelist filter-prefix-whitelist)]
+    (log/info "Whitelist filter kept:" (count filtered) "/" (count events) "removed:" (- (count events) (count filtered)))
+    filtered))
+
 (defn ingest-many
   "Ingest many event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
   ([events] (ingest-many events false))
   ([events force?]
-    (if (nil? @source-whitelist)
-      (elastic/insert-events events force?)
-      (elastic/insert-events 
-        (filter #(@source-whitelist (get % "source_id")) events)
-        force?))))
+    (elastic/insert-events (filter-whitelists events) force?)))
 
 (def replica-collected-url-default
   "https://query.eventdata.crossref.org/events?filter=from-collected-date:%1$s&cursor=%2$s&rows=10000")

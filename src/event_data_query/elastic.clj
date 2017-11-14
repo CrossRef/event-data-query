@@ -216,22 +216,23 @@
       ; If we inserted an older version of an Event, we deliebrately want it to be igonred.
       (try-try-again
         {:sleep 30000 :tries 5}
-        #(let [result (s/request
+        (fn []
+          (let [result (s/request
                          @connection {:url (str index-name "/" distinct-type-name "/_bulk")
                          :method :post
                          :body distinct-chunks})
-              items (-> result :body :items)
-              problem-items (remove (fn [item]
-                                (-> item :index :status #{409 201 200}))
-                              items)]
+                items (-> result :body :items)
+                problem-items (remove (fn [item]
+                                  (-> item :index :status #{409 201 200}))
+                                items)]
 
-              (prn (map (fn [item] (-> item :index :status)) items))
-          
-          ; If there is an HTTP exception, this will be handled by try-try-again and then an exception will be thrown.
-          ; If there is an error within the request (i.e. an individual Event document), re-trying won't help
-          ; so just report and keep going.
-          (when (not-empty problem-items)
-            (log/error "Unexpected response items" problem-items))))))))
+                (log/info "Status codes" (->> items (map #(-> % :index :status)) frequencies))
+            
+            ; If there is an HTTP exception, this will be handled by try-try-again and then an exception will be thrown.
+            ; If there is an error within the request (i.e. an individual Event document), re-trying won't help
+            ; so just report and keep going.
+            (when (not-empty problem-items)
+              (log/error "Unexpected response items" problem-items)))))))))
 
 (defn value-sorted-map
   [input]

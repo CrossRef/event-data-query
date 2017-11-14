@@ -54,7 +54,7 @@ The default values are (noting the `%1$s` string substitution)
 The following methods are only for Crossref internal use as they depend on access-controlled internal resources.
 
  - `lein run server` - run the server
- - `lein run queue-continuous` - run automatic continuous replication via an ActiveMQ Queue
+ - `lein run queue-continuous` - run automatic continuous replication via a Kafka Queue
  - `lein run bus-backfill-days «days»` - backfill from a number of days in the past from the Event Bus archive
  - `lein run add-indexes` - one off, ensure that all indexes are present
 
@@ -103,15 +103,16 @@ Running as a replica:
 
 Running within Crossref:
 
-| Environment variable             | Description                                                    |
-|----------------------------------|----------------------------------------------------------------|
-| `QUERY_WHITELIST_ARTIFACT_NAME`  | Name of Artifact used for source whitelist. Optional.          |
-| `QUERY_EVENT_BUS_BASE`           | Event Bus URL base for re-fill. Optional.                      |
-| `GLOBAL_ARTIFACT_URL_BASE`       | Public URL of Artifact registry. Optional.                     |
-| `QUERY_JWT`                      | JWT Token for authenticating with Bus. Optional.               |
-| `QUERY_TERMS_URL`                | A Terms URL to be associated with each event. Optional.        |
-| `GLOBAL_KAFKA_BOOTSTRAP_SERVERS` | Kafka servers                                                  |
-| `GLOBAL_BUS_OUTPUT_TOPIC`        | Topic to look for Events coming out of the Bus.                |
+| Environment variable                    | Description                                                    |
+|-----------------------------------------|----------------------------------------------------------------|
+| `QUERY_WHITELIST_ARTIFACT_NAME`         | Name of Artifact used for source whitelist. Optional.          |
+| `QUERY_PREFIX_WHITELIST_ARTIFACT_NAME`  | Name of Artifact used for DOI prefix whitelist. Optional.      |
+| `QUERY_EVENT_BUS_BASE`                  | Event Bus URL base for re-fill. Optional.                      |
+| `GLOBAL_ARTIFACT_URL_BASE`              | Public URL of Artifact registry. Optional.                     |
+| `QUERY_JWT`                             | JWT Token for authenticating with Bus. Optional.               |
+| `QUERY_TERMS_URL`                       | A Terms URL to be associated with each event. Optional.        |
+| `GLOBAL_KAFKA_BOOTSTRAP_SERVERS`        | Kafka servers                                                  |
+| `GLOBAL_BUS_OUTPUT_TOPIC`               | Topic to look for Events coming out of the Bus.                |
 
 
 ## License
