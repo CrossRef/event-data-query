@@ -35,7 +35,7 @@
   (is (= (:source processed) "my_source_id") "")
   (is (= (:subj-id-domain processed) "doi.org") "")
   (is (= (:obj-url-domain processed) nil) "")
-  (is (= (:obj-id-domain processed) "doi.org") "")
+  (is (= (:obj-id-domain processed) "dx.doi.org") "")
   (is (= (:obj-id processed) "https://doi.org/10.5555/12345678") "")
   (is (= (:subj-id processed) "https://doi.org/10.6666/87654321") "")
   (is (= (:event processed) input) "")

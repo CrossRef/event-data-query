@@ -1,11 +1,11 @@
-(defproject event-data-query "0.1.31"
+(defproject event-data-query "0.1.32"
   :description "Event Data Query"
   :url "http://eventdata.crossref.org/"
   :license {:name "MIT License"
             :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/core.cache "0.6.5"]
-                 [event-data-common "0.1.41"]
+                 [event-data-common "0.1.42"]
                  [org.clojure/data.json "0.2.6"]
                  [crossref-util "0.1.10"]
                  [clj-http "3.4.1"]

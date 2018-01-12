@@ -3,7 +3,8 @@
             [event-data-query.elastic :as elastic]
             [event-data-query.server :as server]
             [clj-time.format :as clj-time-format]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [event-data-common.core :as common])
   (:gen-class))
 
 (defn close []
@@ -12,6 +13,9 @@
 
 (defn -main
   [& args]
+
+  (common/init)
+
   (elastic/ensure-index)
   (condp = (first args)
     "update-mappings" (elastic/update-mappings)
