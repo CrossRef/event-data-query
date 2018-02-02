@@ -75,7 +75,10 @@
     :properties mapping-properties}})
 
 (def connection (delay
-  (s/client {:hosts [(:query-elastic-uri env)]})))
+  (s/client {:hosts [(:query-elastic-uri env)]
+             :max-retry-timeout 60000
+             :request {:connect-timeout 60000
+                       :socket-timeout 60000}})))
 
 (defn delete-index
   "Delete the index."
@@ -178,14 +181,8 @@
 
 (defn id-for-event-distinct
   [transformed-event]
-  ; Currently need to bodge wikipedia.
   (cr-str/md5
-    (str
-      (condp = (:source transformed-event)
-        "wikipedia" (:subj-url transformed-event)
-        (:subj-id transformed-event))
-      "~"
-      (:obj-id transformed-event))))
+    (str (:subj-id transformed-event) "~" (:obj-id transformed-event))))
 
 (defn insert-events
   ([events] (insert-events events false))

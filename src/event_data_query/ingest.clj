@@ -24,7 +24,8 @@
            [liberator.representation :as representation]
            [clojure.math.combinatorics :as combinatorics]
            [robert.bruce :refer [try-try-again]]
-           [clojure.walk :as walk])
+           [clojure.walk :as walk]
+           [clojure.tools.logging :as log])
   (:import [org.apache.kafka.clients.consumer KafkaConsumer Consumer ConsumerRecords])
   (:gen-class))
 
@@ -65,7 +66,8 @@
     (filter #(let [subj-id (get % "subj_id")
                    obj-id (get % "obj_id")]
              (or 
-                 ; There's no DOI in either subj or obj position, e.g. Wikipedia is-version-of Event.
+                 ; There's no DOI in either subj or obj position.
+                 ; This can happen in theory.
                  (not (or (cr-doi/well-formed subj-id)
                           (cr-doi/well-formed obj-id)))
                  ; Or there's a whitelisted DOI prefix in the subject or object.

@@ -170,6 +170,9 @@
         (log/info "Got filters:" filters "facet:" facets)
         (log/info "Execute query:" query "facet:" facet-query)
 
+        ; Log the mailto.
+        (log/info (json/write-str {:mailto (get-in ctx [:request :params "mailto"])}))
+
         [false
          {::rows rows
           ::query query
