@@ -53,7 +53,7 @@ The default values are (noting the `%1$s` string substitution)
 
 The following methods are only for Crossref internal use as they depend on access-controlled internal resources.
 
- - `lein run server` - run the server
+ - `lein run server` - run the server. 
  - `lein run queue-continuous` - run automatic continuous replication via a Kafka Queue
  - `lein run bus-backfill-days «days»` - backfill from a number of days in the past from the Event Bus archive
  - `lein run add-indexes` - one off, ensure that all indexes are present
@@ -70,7 +70,7 @@ Because we may recieve data for more sources than we wish to store, the whitelis
 
 Server
 
-    docker-compose -f docker-compose.yml run -w /usr/src/app --service-ports test lein run server
+    docker-compose -f docker-compose.yml run -w /usr/src/app --service-ports test lein run server.
 
 REPL
 
@@ -84,9 +84,10 @@ To run tests
 
 In all cases:
 
-| Environment variable | Description                                                   |
-|----------------------|---------------------------------------------------------------|
-| `QUERY_ELASTIC_URI`  | Connection URI for ElasticSearch e.g. `http://127.0.0.1:9200` |
+| Environment variable | Description                                                                                      |
+|----------------------|--------------------------------------------------------------------------------------------------|
+| `QUERY_DEPLOYMENT`   | Optional. Prefix for ElasticSearch indexes to allow for multiple index instances per ES cluster. |
+| `QUERY_ELASTIC_URI`  | Connection URI for ElasticSearch e.g. `http://127.0.0.1:9200`                                    |
 
 Running server:
 

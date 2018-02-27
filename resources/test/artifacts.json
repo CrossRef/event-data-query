@@ -1,0 +1,78 @@
+{
+  "type": "artifact-name-list",
+  "updated": "2018-02-07T18:08:22.114Z",
+  "artifacts": {
+    "exclude-domains": {
+      "name": "exclude-domains",
+      "current-version": "1482488914065",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/exclude-domains/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/exclude-domains/versions/1482488914065"
+    },
+    "datacite-doi-prefix-list": {
+      "name": "datacite-doi-prefix-list",
+      "current-version": "1510664117462",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/datacite-doi-prefix-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/datacite-doi-prefix-list/versions/1510664117462"
+    },
+    "doi-prefix-list": {
+      "name": "doi-prefix-list",
+      "current-version": "1510664053724",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/doi-prefix-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/doi-prefix-list/versions/1510664053724"
+    },
+    "datacite-domain-list": {
+      "name": "datacite-domain-list",
+      "current-version": "1510664081056",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/datacite-domain-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/datacite-domain-list/versions/1510664081056"
+    },
+    "crossref-sourcelist": {
+      "name": "crossref-sourcelist",
+      "current-version": "1518026900764",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/crossref-sourcelist/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/crossref-sourcelist/versions/1518026900764"
+    },
+    "other": {
+      "name": "other",
+      "current-version": "1481820920798",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/other/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/other/versions/1481820920798"
+    },
+    "domain-list": {
+      "name": "domain-list",
+      "current-version": "1510664150791",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/domain-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/domain-list/versions/1510664150791"
+    },
+    "stackexchange-sites": {
+      "name": "stackexchange-sites",
+      "current-version": "1492513661554",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/stackexchange-sites/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/stackexchange-sites/versions/1492513661554"
+    },
+    "crossref-doi-prefix-list": {
+      "name": "crossref-doi-prefix-list",
+      "current-version": "1510663976933",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/crossref-doi-prefix-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/crossref-doi-prefix-list/versions/1510663976933"
+    },
+    "crossref-domain-list": {
+      "name": "crossref-domain-list",
+      "current-version": "1510664005338",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/crossref-domain-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/crossref-domain-list/versions/1510664005338"
+    },
+    "newsfeed-list": {
+      "name": "newsfeed-list",
+      "current-version": "1518015172821",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/newsfeed-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/newsfeed-list/versions/1518015172821"
+    },
+    "subreddit-list": {
+      "name": "subreddit-list",
+      "current-version": "1492173835144",
+      "versions-link": "https://artifact.eventdata.crossref.org/a/subreddit-list/versions.json",
+      "current-version-link": "https://artifact.eventdata.crossref.org/a/subreddit-list/versions/1492173835144"
+    }
+  }
+}

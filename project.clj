@@ -1,4 +1,4 @@
-(defproject event-data-query "0.1.33"
+(defproject event-data-query "0.2.0-SNAPSHOT"
   :description "Event Data Query"
   :url "http://eventdata.crossref.org/"
   :license {:name "MIT License"
@@ -9,6 +9,8 @@
                  [org.clojure/data.json "0.2.6"]
                  [crossref-util "0.1.10"]
                  [clj-http "3.4.1"]
+                 [clj-http-fake "1.0.3"]
+                 [ring/ring-mock "0.3.0"]
                  [overtone/at-at "1.2.0"]
                  [robert/bruce "0.8.0"]
                  [yogthos/config "0.8"]
@@ -19,7 +21,7 @@
                  [clojurewerkz/quartzite "2.0.0"]
                  [cheshire "5.7.0"]
                  [slingshot "0.12.2"]
-                 [cc.qbits/spandex "0.4.2"]
+                 [cc.qbits/spandex "0.6.0"]
                  [compojure "1.5.1"]
                  [org.eclipse.jetty/jetty-server "9.4.0.M0"]
                  [liberator "0.14.1"]
@@ -28,6 +30,7 @@
                  [ring/ring-servlet "1.5.0"]]
   ; :exclusions [org.slf4j/slf4j-simple]
   :main ^:skip-aot event-data-query.core
+  :plugins [[lein-cljfmt "0.5.7"]]
   :target-path "target/%s"
   :jvm-opts ["-Duser.timezone=UTC" "-Xmx4G"]
   :profiles {:uberjar {:aot :all}})

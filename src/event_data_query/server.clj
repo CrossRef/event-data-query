@@ -30,7 +30,7 @@
             
             [clojure.data.json :as json]
             [config.core :refer [env]]
-            [compojure.core :refer [defroutes GET POST]]
+            [compojure.core :refer [defroutes GET POST context]]
             [ring.middleware.params :as middleware-params]
             [ring.middleware.resource :as middleware-resource]
             [ring.middleware.content-type :as middleware-content-type]
@@ -93,34 +93,12 @@
   (get-in ctx [:request :params "cursor"]))
 
 (defn get-cursor-event
-  [ctx]
+  [index-id ctx]
   (when-let [event-id (not-empty (get-cursor-value ctx))]
-    (let [event (elastic/get-by-id-full event-id elastic/event-type-name)]
+    (let [event (elastic/get-by-id index-id event-id)]
       (when-not event
         (throw (new IllegalArgumentException "Invalid cursor supplied.")))
       event)))
-
-(defn all-events-query
-  [ctx]
-  (elastic/search-query
-    (::query ctx)
-    (::facet-query ctx)
-    elastic/event-type-name
-    (::rows ctx)
-    [{:timestamp "asc"} {:_uid "desc"}]
-    [(or (-> ctx ::cursor-event :timestamp) 0) (or (-> ctx ::cursor-event :id) "")]))
-
-(defn distinct-events-query
-  [ctx]
-  (elastic/search-query
-  (::query ctx)
-  (::facet-query ctx)
-  elastic/distinct-type-name
-  (::rows ctx)
-  [{:_uid "asc"}]
-  ; Need to re-created the value of _uid, which is combination of 
-  ; type and _id.
-  [(str elastic/distinct-type-name "#" (or (::cursor-value ctx) ""))]))
 
 (def events-defaults
   "Base for 'events' and 'distinct events' resources."
@@ -128,6 +106,8 @@
    
    :handle-exception
    (fn [ctx]
+    (log/error (:exception ctx))
+    (clojure.pprint/pprint ctx)
     {:status "failed"
      :message "An internal error occurred. If you see this message repeatedly, please contact us."})
 
@@ -149,11 +129,9 @@
 ; For 'events' queries, Events are sorted by their timestamp, then by id.
 ; For 'distinct' queries, Events are sorted by their hash id (_id)
 ; Because of this, we pass in both 'sort' and 'search after' criteria to elastic/search-query
-; The _uid field is a combination of type and _id, e.g. "latest#12345". This is indexed where _id isn't.
-; Therefore, we use _uid to sort etc.
-
-(defresource all-events
-  []
+; The _id field is a combination of type and id, e.g. "latest#12345".
+(defresource query-events
+  [index-id]
   events-defaults
   :malformed?
   (fn [ctx]
@@ -165,7 +143,7 @@
             facet-query (facet/build-facet-query facets)
 
             ; Get the Event that corresponds to the cursor, if supplied.
-            cursor-event (get-cursor-event ctx)]
+            cursor-event (get-cursor-event index-id ctx)]
 
         (log/info "Got filters:" filters "facet:" facets)
         (log/info "Execute query:" query "facet:" facet-query)
@@ -189,10 +167,18 @@
 
   :handle-ok
   (fn [ctx]
-    (let [[events
-           hits
-           facet-results] (all-events-query ctx)
-           total-results (elastic/count-query (::query ctx) elastic/event-type-name)
+    (let [[events hits facet-results]
+          (elastic/search-query
+            index-id
+            (::query ctx)
+            (::facet-query ctx)
+            (::rows ctx)
+            [{:timestamp "asc"} {:_id "desc"}]
+            [(or (-> ctx ::cursor-event :timestamp) 0)
+             (or (-> ctx ::cursor-event :id) "")])
+
+
+           total-results (elastic/count-query index-id (::query ctx))
           
           next-cursor-id (-> events last :id)
  
@@ -211,60 +197,6 @@
       :message-type "event-list"
       :message message})))
 
-(defresource distinct-events
-  []
-  events-defaults
-
-  :malformed?
-  (fn [ctx]
-    (try+
-      (let [rows (get-rows ctx)
-            filters (get-filters ctx)
-            facets (get-facets ctx)
-            query (query/build-filter-query filters)
-            facet-query (facet/build-facet-query facets)
-
-            cursor-value (get-cursor-value ctx)]
-
-        (log/info "Got filters:" filters "facet:" facets)
-        (log/info "Execute query:" query "facet:" facet-query)
-
-        [false
-         {::rows rows
-          ::query query
-          ::facet-query facet-query
-          ::cursor-value cursor-value}])
-
-      (catch [:type :validation-failure] {:keys [message type subtype]}
-        [true {::error-type type
-               ::error-subtype subtype
-               ::error-message message}])
-      
-      (catch IllegalArgumentException ex
-        [true {::error-message (.getMessage ex)}])))
-
-  :handle-ok
-  (fn [ctx]
-    (let [[events hits facet-results] (distinct-events-query ctx)
-          total-results (elastic/count-query (::query ctx) elastic/distinct-type-name)
-         
-          next-cursor-id (-> hits last :_id)
-
-          message {:next-cursor next-cursor-id
-                   :total-results total-results
-                   :items-per-page (::rows ctx)
-                   :events (map export-event events)}
-
-          ; facet-query can be null if not supplied.
-          ; we don't want to show a nil result for facets if there was no facet query supplied
-          message (if (::facet-query ctx)
-                     (assoc message :facets facet-results)
-                     message)]
-
-    {:status "ok"
-     :message-type "event-list"
-     :message message})))
-
 (defn get-interval
   [ctx]
   (condp = (get-in ctx [:request :params "interval"])
@@ -281,14 +213,13 @@
   (condp = (get-in ctx [:request :params "field"])
     "collected" :timestamp
     "occurred" :occurred
-    "updated-date" :updated-date
     (throw+ {:type :validation-failure
              :subtype :field-unrecognised
-             :message "Value of 'field' unrecognised. Supply 'field' value of 'collected', 'occurred' or 'updated-date'"})))
+             :message "Value of 'field' unrecognised. Supply 'field' value of 'collected', 'occurred'"})))
 
 
 (defresource events-time
-  [elastic-type]
+  [index-id]
   :available-media-types ["text/csv"]
   :malformed?
   (fn [ctx]
@@ -316,8 +247,8 @@
   :exists?
   (fn [ctx]
     (let [results (elastic/time-facet-query
+                    index-id
                     (::query ctx)
-                    elastic-type
                     (::field ctx)
                     (::interval ctx))
           ; Need to massage to with with Liberator's representations requirements.
@@ -344,16 +275,13 @@
                                                   :message (::error-message ctx)}]})))
 
 (defresource event
-  [id]
+  [index-id id]
   :available-media-types ["application/json"]
   
   :exists? (fn [ctx]
-            (let [the-event (elastic/get-by-id id elastic/event-type-name)
-                  deleted (= (get the-event :updated) "deleted")
-                  ; User can request to show anyway
-                  include-deleted (= (get-in ctx [:request :params "include-deleted"]) "true")]
-              [(and the-event (or include-deleted
-                                  (not deleted))) {::event the-event}]))
+             (if-let [the-event (elastic/get-by-id index-id id)]
+               [true {::event the-event}]
+               [false {}]))
 
   :handle-ok (fn [ctx]
               {:status "ok"
@@ -362,19 +290,6 @@
                  :event (export-event (::event ctx))}})
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
-
-
-(defresource alternative-ids-check
-  []
-  :allowed-methods [:get]
-  :available-media-types ["application/json"]
-  :handle-ok (fn [ctx]
-               (let [ids (vec (.split
-                                (get-in ctx [:request :params "ids"] "")
-                                ","))
-               
-                    matches (elastic/alternative-ids-exist ids elastic/event-type-name)]
-                {:alternative-ids matches})))
 
 (defresource home
   []
@@ -385,14 +300,34 @@
 
 (defroutes app-routes
   (GET "/" [] (home))
-  (GET "/events" [] (all-events))
-  (GET "/events/distinct" [] (distinct-events))
 
-  (GET "/events/time.csv" [] (events-time elastic/event-type-name))
-  (GET "/events/distinct/time.csv" [] (events-time elastic/distinct-type-name))
+  (context "/v1" []
 
-  (GET "/events/:id" [id] (event id))
-  (GET "/special/alternative-ids-check" [] (alternative-ids-check)))
+    ; All resources and sub-resources for each collection.
+    (GET "/events/edited" [] (query-events :edited))
+    (GET "/events/edited/time.csv" [] (events-time :edited))
+    (GET "/events/edited/:id" [id] (event :edited id))
+    
+
+    (GET "/events/deleted" [] (query-events :deleted))
+    (GET "/events/deleted/time.csv" [] (events-time :deleted))
+    (GET "/events/deleted/:id" [id] (event :deleted id))
+
+    (GET "/events/experimental" [] (query-events :experimental))
+    (GET "/events/experimental/time.csv" [] (events-time :experimental))
+    (GET "/events/experimental/:id" [id] (event :experimental id))
+
+    (GET "/events/distinct" [] (query-events :distinct))
+    (GET "/events/distinct/time.csv" [] (events-time :distinct))
+    (GET "/events/distinct/:id" [id] (event :distinct id))
+
+    (GET "/events/scholix" [] (query-events :scholix))
+    (GET "/events/scholix/time.csv" [] (events-time :scholix))
+    (GET "/events/scholix/:id" [id] (event :scholix id))
+
+    (GET "/events" [] (query-events :standard))
+    (GET "/events/time.csv" [] (events-time :standard))
+    (GET "/events/:id" [id] (event :standard id))))
 
 (defn wrap-cors [handler]
   (fn [request]
@@ -408,7 +343,8 @@
 
 (def schedule-pool (at-at/mk-pool))
 
-(defn run []
+(defn run
+  []
   (let [port (Integer/parseInt (:query-port env))]
     (log/info "Start server on " port)
     (server/run-server app {:port port})))

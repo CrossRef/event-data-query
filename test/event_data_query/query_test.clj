@@ -64,16 +64,6 @@
 
 ; Note that this is a bit special, see docs for query/q-from-updated-date
 (deftest q-from-updated-date
-  (testing "q-from-updated-date filters :update field from start of given day when date present"
-    (is (= (query/q-from-updated-date {:updated-date nil})
-           {:bool {:must_not {:term {:updated "deleted"}}}})
-      "'timestamp' greater than or equal date using special indexed field"))
-
-  (testing "q-from-updated-date excludes deleted items if not present"
-    (is (= (query/q-from-updated-date {})
-           {:bool {:must_not {:term {:updated "deleted"}}}})
-      "'timestamp' greater than or equal date using special indexed field"))
-  
   (testing "from-updated-date throws exception on invalid date"
     (is (thrown-with-msg? Exception #"from-updated-date incorrect"
                           (query/q-from-updated-date {:from-updated-date "Threeth Octember 201"})))))
@@ -149,15 +139,4 @@
   (testing "q-source should query for source field"
     (is (= (query/q-source {:source "doi-chat"})
             {:term {:source "doi-chat"}}))))
-
-(deftest q-experimental
-  (testing "q-experimental should query for true if present, else false"
-    (is (= (query/q-experimental {:experimental "true"})
-            {:term {:experimental true}}))
-
-    (is (= (query/q-experimental {:experimental "false"})
-            {:term {:experimental false}}))
-
-    (is (= (query/q-experimental {})
-            {:term {:experimental false}}))))
 

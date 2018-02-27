@@ -67,8 +67,7 @@
       (catch IllegalArgumentException _
       (throw+ {:type :validation-failure
                :subtype :invalid-date
-               :message (str "Date format suplied to from-updated-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))
-      {:bool {:must_not {:term {:updated "deleted"}}}}))
+               :message (str "Date format suplied to from-updated-date incorrect. Expected YYYY-MM-DD, got: " date-str)})))))
   
 
 
@@ -157,14 +156,6 @@
   (if-let [source (:source params)]
     {:term {:source source}}))
 
-; Experimental must be false by default.
-(defn q-experimental
-  [params]
-  (let [experimental (:experimental params)]
-    (if (= "true" experimental)
-      {:term {:experimental true}}
-      {:term {:experimental false}})))
-
 (def filters
   "Map of input parameter to function that parses it out."
   {:from-occurred-date q-from-occurred-date
@@ -185,7 +176,6 @@
    :subj.alternative-id q-subj-alternative-id
    :obj.alternative-id q-obj-alternative-id
    :relation-type q-relation-type
-   :experimental q-experimental
    :source q-source}) 
 
 (def query-process-fns

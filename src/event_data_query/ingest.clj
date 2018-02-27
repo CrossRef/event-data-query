@@ -168,6 +168,7 @@
 
 (defn bus-backfill-days
   [num-days force?]
+  (elastic/set-refresh-interval! "-1")
   (let [prefixes (event-bus-prefixes-length event-bus-archive-prefix-length)
         end-date (clj-time/now)
         start-date (clj-time/minus end-date (clj-time/days num-days))
@@ -182,7 +183,6 @@
                             (try-try-again
                               {:sleep 30000 :tries 10}
                               (fn []
-                               (log/info "Attempt retrieve" url)
                                (let [response (client/get url
                                                 {:as :stream
                                                  :timeout 900000
@@ -201,6 +201,7 @@
           (log/info "Ingested" @total-count "this session, currently Downloading" date)
           (ingest-many chunk force?))
         (log/info "Done all chunks for day.")))
+    (elastic/set-refresh-interval! "60s")
     (log/info "Done all days.")))
 
 
@@ -214,6 +215,8 @@
      
      ; This is only used in the absence of an existing marker for the group.
      (.put properties "auto.offset.reset" "earliest")
+
+     (elastic/set-refresh-interval! "60s")
 
      (let [consumer (KafkaConsumer. properties)
            topic-name (:global-bus-output-topic env)]
