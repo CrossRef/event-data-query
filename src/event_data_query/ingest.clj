@@ -11,9 +11,7 @@
            [clojure.tools.logging :as log]
            [clojurewerkz.quartzite.jobs :as qj]
            [clojurewerkz.quartzite.jobs :refer [defjob]]
-           [clojurewerkz.quartzite.schedule.calendar-interval :as cal]
            [clojurewerkz.quartzite.schedule.cron :as qc]
-           [clojurewerkz.quartzite.schedule.daily-interval :as daily]
            [clojurewerkz.quartzite.scheduler :as qs]
            [clojurewerkz.quartzite.triggers :as qt]
            [compojure.core :refer [defroutes GET]]
@@ -180,18 +178,23 @@
             api-results (pmap
                           (fn [url]
                             (log/info "Fetch archive prefix URL " url)
-                            (try-try-again
-                              {:sleep 30000 :tries 10}
-                              (fn []
-                               (let [response (client/get url
-                                                {:as :stream
-                                                 :timeout 900000
-                                                 :headers
-                                                   {"Authorization"
-                                                   (str "Bearer " (:query-jwt env))}})]
-                                     (with-open [body (io/reader (:body response))]
-                                       (let [stream (cheshire/parse-stream body)]
-                                         (get stream "events")))))))
+                            (try
+                              (try-try-again
+                                {:sleep 3 :tries 10}
+                                (fn []
+                                 (log/info "Try archive prefix URL " url)
+                                 (let [response (client/get url
+                                                  {:as :stream
+                                                   :timeout 900000
+                                                   :headers
+                                                     {"Authorization"
+                                                     (str "Bearer " (:query-jwt env))}})]
+                                       (log/info "Got archive prefix URL " url)
+                                       (with-open [body (io/reader (:body response))]
+                                         (let [stream (cheshire/parse-stream body)]
+                                           (get stream "events"))))))
+                                (catch Exception ex (do
+                                  (log/fatal "Unhandled failure ingesting archive" ex)))))
                           prefix-urls)
 
             events (mapcat identity api-results)

@@ -15,13 +15,6 @@
             [clojure.java.io :as io]
             [clj-http.client :as client]
             [cheshire.core :as cheshire]
-            [clojurewerkz.quartzite.triggers :as qt]
-            [clojurewerkz.quartzite.jobs :as qj]
-            [clojurewerkz.quartzite.schedule.daily-interval :as daily]
-            [clojurewerkz.quartzite.schedule.calendar-interval :as cal]
-            [clojurewerkz.quartzite.jobs :refer [defjob]]
-            [clojurewerkz.quartzite.scheduler :as qs]
-            [clojurewerkz.quartzite.schedule.cron :as qc]
 
             [clojure.data.json :as json]
             [clojure.java.io :as io]
@@ -37,7 +30,6 @@
             [liberator.core :refer [defresource]]
             [liberator.representation :as representation]
             [ring.util.response :as ring-response]
-            [overtone.at-at :as at-at]
             [slingshot.slingshot :refer [try+ throw+]])
   (:gen-class))
 
@@ -340,8 +332,6 @@
      (middleware-resource/wrap-resource "public")
      (middleware-content-type/wrap-content-type)
      (wrap-cors)))
-
-(def schedule-pool (at-at/mk-pool))
 
 (defn run
   []

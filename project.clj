@@ -23,12 +23,9 @@
                  [slingshot "0.12.2"]
                  [cc.qbits/spandex "0.6.0"]
                  [compojure "1.5.1"]
-                 [org.eclipse.jetty/jetty-server "9.4.0.M0"]
                  [liberator "0.14.1"]
                  [ring "1.5.0"]
-                 [ring/ring-jetty-adapter "1.5.0"]
                  [ring/ring-servlet "1.5.0"]]
-  ; :exclusions [org.slf4j/slf4j-simple]
   :main ^:skip-aot event-data-query.core
   :plugins [[lein-cljfmt "0.5.7"]]
   :target-path "target/%s"

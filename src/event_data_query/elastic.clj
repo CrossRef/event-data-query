@@ -214,7 +214,7 @@
                                 :method :put
                                 :body {:settings {;"index.mapping.depth.limit" 1
                                                   "number_of_shards" 8
-                                                  "number_of_replicas" 2}
+                                                  "number_of_replicas" 1}
                                        :mappings {event-type-name {:properties (:mappings index-config)}}}})
         (catch Exception ex2
           (log/error "Failed to create index!" ex2))))))
