@@ -99,28 +99,30 @@
   [non-url-normalized-doi]
   ; We might get nils.
   (when non-url-normalized-doi
-    (let [ra (get-ra-api non-url-normalized-doi)
-          safe-doi (URLEncoder/encode non-url-normalized-doi "UTF-8")
-          url (condp = ra
-                :crossref (str "https://api.crossref.org/v1/works/" safe-doi)
-                :datacite (str "https://api.datacite.org/works/" safe-doi "?include=resource-type")
-                nil)
-          response (when url (client/get url))
-          body (when response (-> response :body (json/read-str :key-fn keyword)))
+    (try
+      (let [ra (get-ra-api non-url-normalized-doi)
+            safe-doi (URLEncoder/encode non-url-normalized-doi "UTF-8")
+            url (condp = ra
+                  :crossref (str "https://api.crossref.org/v1/works/" safe-doi "?mailto=eventdata@crossref.org")
+                  :datacite (str "https://api.datacite.org/works/" safe-doi "?include=resource-type")
+                  nil)
 
-          work-type (condp = ra
-                      :crossref (-> body :message :type)
-                      :datacite (->> body
-                                    :included
-                                    (filter #(= (:type %) "resource-types"))
-                                    first
-                                    :id)
-                      nil)]
-
-    ; If we couldn't discover the RA, then this isn't a real DOI. 
-    ; Return nil so this doens't get cached (could produce a false-negative in future).
-    (when ra
-      {:content-type work-type :ra ra :doi non-url-normalized-doi}))))
+            response (try-try-again
+                        {:sleep 10000 :tries 2}
+                        #(when url (client/get url)))
+            body (when response (-> response :body (json/read-str :key-fn keyword)))
+            work-type (condp = ra
+                        :crossref (-> body :message :type)
+                        :datacite (-> body :data :attributes :resource-type-id)
+                        nil)]
+      ; If we couldn't discover the RA, then this isn't a real DOI. 
+      ; Return nil so this doens't get cached (could produce a false-negative in future).
+      (when ra
+        {:content-type work-type :ra ra :doi non-url-normalized-doi}))
+      (catch Exception ex
+        (do
+          (log/error "Failed to retrieve metadata for DOI" non-url-normalized-doi)
+          nil)))))
 
 
 (defn get-for-dois
@@ -150,7 +152,6 @@
           ; Don't save if we couldn't retrieve any data from the API (DOI-like doesn't exist).
           (when (and normalized-doi result)
             (insert-work normalized-doi result)))
-
 
         (merge (into {} (map (fn [[input-doi _ result]]
                                  [input-doi result]) from-cache))

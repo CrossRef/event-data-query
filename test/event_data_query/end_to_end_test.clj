@@ -42,9 +42,10 @@
         event-data-query.work-cache/get-for-dois
         (fn [_]
           {"https://doi.org/10.1016/s0305-9006(99)00007-0"
-           {:content-type "journal-article", :ra "crossref", :doi "10.1016/s0305-9006(99)00007-0"},
+           {:content-type "journal-article" :ra "crossref" :doi "10.1016/s0305-9006(99)00007-0"}
+
            "https://doi.org/10.5167/UZH-30455"
-           {:content-type "text", :ra "datacite", :doi "10.5167/UZH-30455"}})]
+           {:content-type "text" :ra "datacite" :doi "10.5167/UZH-30455"}})]
 
         ; Clear the index first if it exists.
         (try
