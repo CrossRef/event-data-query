@@ -195,7 +195,8 @@
 (defn set-refresh-interval!
   "Set the refresh_interval for all indexes to the given value.
    Used before and after a big index insertion.
-   Back-of-the-envelope, on a single local instance, this saves a couple of minutes per 200,000 Events."
+   Back-of-the-envelope, on a single local instance, this saves a couple of minutes per 200,000 Events.
+   Only do this for the events storage, not for any other indexes that may be present (like the work cache)."
   [value]
   (doseq [index-config (vals index-configs)]
     (s/request @connection {:url (str (:name index-config) "/_settings")

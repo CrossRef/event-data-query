@@ -46,8 +46,10 @@
            "https://doi.org/10.5167/UZH-30455"
            {:content-type "text", :ra "datacite", :doi "10.5167/UZH-30455"}})]
 
-        ; Clear the index first.
-        (is (= 200 (:status (s/request @elastic/connection {:url "/test_*" :method :delete}))))
+        ; Clear the index first if it exists.
+        (try
+          (:status (s/request @elastic/connection {:url "/test_*" :method :delete}))
+          (catch Exception _ nil))
 
         ; Create indexes.
         (elastic/ensure-indexes)

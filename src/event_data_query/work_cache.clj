@@ -75,68 +75,87 @@
 (defn get-ra-api
   "Get the Registration Agency from the DOI RA API. 
    Return :crossref :datacite or nil."
-  [doi]
-  (try
-    (-> doi
-        cr-doi/non-url-doi
-        (URLEncoder/encode "UTF-8")
-        (#(str "https://doi.org/doiRA/" %))
-        client/get
-        :body
-        (json/read-str :key-fn keyword)
-        first
-        :RA
-        (or "")
-        clojure.string/lower-case
-        {"datacite" :datacite
-         "crossref" :crossref})
+  [non-url-normalized-doi]
+  (when non-url-normalized-doi
+    (try
+      (-> non-url-normalized-doi
+          (URLEncoder/encode "UTF-8")
+          (#(str "https://doi.org/doiRA/" %))
+          client/get
+          :body
+          (json/read-str :key-fn keyword)
+          first
+          :RA
+          (or "")
+          clojure.string/lower-case
+          {"datacite" :datacite
+           "crossref" :crossref})
 
-    ; Not found, or invalid data, return nil.
-    (catch Exception ex (do (log/error ex) nil))))
+      ; Not found, or invalid data, return nil.
+      (catch Exception ex (do (log/error ex) nil)))))
 
 (defn get-work-api
   "Get the work metadata from the Crossref or DataCite API."
-  [doi]
-  (let [ra (get-ra-api doi)
-        safe-doi (URLEncoder/encode (cr-doi/non-url-doi doi) "UTF-8")
-        url (condp = ra
-              :crossref (str "https://api.crossref.org/v1/works/" safe-doi)
-              :datacite (str "https://api.datacite.org/works/" safe-doi "?include=resource-type")
-              nil)
-        response (when url (client/get url))
-        body (when response (-> response :body (json/read-str :key-fn keyword)))
+  [non-url-normalized-doi]
+  ; We might get nils.
+  (when non-url-normalized-doi
+    (let [ra (get-ra-api non-url-normalized-doi)
+          safe-doi (URLEncoder/encode non-url-normalized-doi "UTF-8")
+          url (condp = ra
+                :crossref (str "https://api.crossref.org/v1/works/" safe-doi)
+                :datacite (str "https://api.datacite.org/works/" safe-doi "?include=resource-type")
+                nil)
+          response (when url (client/get url))
+          body (when response (-> response :body (json/read-str :key-fn keyword)))
 
-        work-type (condp = ra
-                    :crossref (-> body :message :type)
-                    :datacite (->> body
-                                  :included
-                                  (filter #(= (:type %) "resource-types"))
-                                  first
-                                  :id)
-                    nil)]
+          work-type (condp = ra
+                      :crossref (-> body :message :type)
+                      :datacite (->> body
+                                    :included
+                                    (filter #(= (:type %) "resource-types"))
+                                    first
+                                    :id)
+                      nil)]
 
-  {:content-type work-type :ra ra :doi doi}))
+    ; If we couldn't discover the RA, then this isn't a real DOI. 
+    ; Return nil so this doens't get cached (could produce a false-negative in future).
+    (when ra
+      {:content-type work-type :ra ra :doi non-url-normalized-doi}))))
 
 
 (defn get-for-dois
-  "For a sequence of DOIs, perform cached lookups and return in a hash-map."
-  [dois]
-  (let [distinct-dois (set dois)
-        ; doi->result
-        from-cache (into {} (map (fn [doi]
-                                      [doi (get-work doi)])
-                                  distinct-dois))
+  "For a sequence of DOIs, perform cached lookups and return in a hash-map.
+   When an input isn't a valid DOI, the response is nil."
+  [dois]  
+  ; Map of inputs to normalized DOI (or nil if it isn't valid).
+  (let [inputs-normalized (map (fn [input]
+                                   [input (when (cr-doi/well-formed input)
+                                            (cr-doi/non-url-doi input))]) dois)
+        ; Look up each entry into triple.
+        from-cache (map (fn [[input-doi normalized-doi]]
+                            [input-doi normalized-doi (when normalized-doi (get-work normalized-doi))])
+                        inputs-normalized)
 
-        missing-dois (->> from-cache
-                       (filter (fn [[k v]] (nil? v)))
-                       (map first))
+        missing-entries (filter (fn [[input-doi normalized-doi result]] (nil? result))
+                                from-cache)
 
-        from-api (into {} (map (fn [doi]
-                                  [doi (get-work-api doi)]) missing-dois))]
 
-        (doseq [[doi data] from-api]
-          (insert-work doi data))
+        ; Look up missing ones into triples.
+        from-api (map (fn [[input-doi normalized-doi _]]
+                          [input-doi normalized-doi (when normalized-doi (get-work-api normalized-doi))])
+                      missing-entries)]
 
-        (merge from-cache from-api)))
+        (doseq [[_ normalized-doi result] from-api]
+          ; Don't save in cache if it wasn't a DOI (or was nil).
+          ; Don't save if we couldn't retrieve any data from the API (DOI-like doesn't exist).
+          (when (and normalized-doi result)
+            (insert-work normalized-doi result)))
+
+
+        (merge (into {} (map (fn [[input-doi _ result]]
+                                 [input-doi result]) from-cache))
+
+               (into {} (map (fn [[input-doi _ result]]
+                                 [input-doi result]) from-api)))))
 
 
