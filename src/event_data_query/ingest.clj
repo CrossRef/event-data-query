@@ -23,7 +23,8 @@
            [clojure.math.combinatorics :as combinatorics]
            [robert.bruce :refer [try-try-again]]
            [clojure.walk :as walk]
-           [clojure.tools.logging :as log])
+           [clojure.tools.logging :as log]
+           [com.climate.claypoole :as cp])
   (:import [org.apache.kafka.clients.consumer KafkaConsumer Consumer ConsumerRecords])
   (:gen-class))
 
@@ -164,6 +165,10 @@
   [length]
   (map #(apply str %) (combinatorics/selections hexadecimal length)))
 
+(def bus-fetch-parallelism
+  "How many simultaneous requests to the Event Bus archive?"
+  10)
+
 (defn bus-backfill-days
   [num-days force?]
   (elastic/set-refresh-interval! "-1")
@@ -173,39 +178,42 @@
         date-range (take-while #(clj-time/before? % end-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
         total-count (atom 0)]
     (doseq [date date-range]
-      (let [date-str (clj-time-format/unparse ymd-format date)
-            prefix-urls (map #(str (:query-event-bus-base env) "/events/archive/" date-str "/" %) prefixes)
-            api-results (pmap
-                          (fn [url]
-                            (log/info "Fetch archive prefix URL " url)
-                            (try
-                              (try-try-again
-                                {:sleep 3 :tries 10}
-                                (fn []
-                                 (log/info "Try archive prefix URL " url)
-                                 (let [response (client/get url
-                                                  {:as :stream
-                                                   :timeout 900000
-                                                   :headers
-                                                     {"Authorization"
-                                                     (str "Bearer " (:query-jwt env))}})]
-                                       (log/info "Got archive prefix URL " url)
-                                       (with-open [body (io/reader (:body response))]
-                                         (let [stream (cheshire/parse-stream body)]
-                                           (get stream "events"))))))
-                                (catch Exception ex (do
-                                  (log/fatal "Unhandled failure ingesting archive" ex)))))
-                          prefix-urls)
+      (let [date-str (clj-time-format/unparse ymd-format date)]
+        (log/info "Ingest for date" date-str "...")
 
-            events (mapcat identity api-results)
-            event-chunks (partition-all insert-chunk-size events)]
-        (doseq [chunk event-chunks]
-          (swap! total-count #(+ % (count chunk)))
-          (log/info "Ingested" @total-count "this session, currently Downloading" date)
-          (ingest-many chunk force?))
-        (log/info "Done all chunks for day.")))
-    (elastic/set-refresh-interval! "60s")
-    (log/info "Done all days.")))
+        (cp/pdoseq bus-fetch-parallelism [prefix prefixes]
+          (let [url (str (:query-event-bus-base env) "/events/archive/" date-str "/" prefix)]
+            (try
+              (try-try-again
+                {:sleep 30000 :tries 10}
+                (fn []
+                  (log/info "Try" date-str prefix)
+                  (let [response (client/get url
+                                   {:as :stream
+                                    :timeout 900000
+                                    :headers
+                                    {"Authorization" (str "Bearer " (:query-jwt env))}})]
+                      (log/info "Got" date-str prefix)
+                      (with-open [body (io/reader (:body response))]
+                        (let [stream (cheshire/parse-stream body)
+                              events (get stream "events")
+                              event-chunks (partition-all insert-chunk-size events)
+                              chunks-count (atom 0)]
+                          (log/info "Inserting chunks for" date-str prefix)
+                          (doseq [chunk event-chunks]
+                            (log/info "Ingesting chunk" @chunks-count "for" date-str prefix)
+                            (ingest-many chunk force?)
+                            (swap! total-count #(+ % (count chunk)))
+                            (swap! chunks-count inc))
+                          (log/info "Finished day prefix" date-str prefix)
+                          (log/info "Inserted" @total-count "events this session"))))))
+              (catch Exception ex (do
+                (log/fatal "Unhandled failure ingesting archive" ex))))))
+      (log/info "Finished day" date-str)))
+
+      (elastic/set-refresh-interval! "60s")
+      (log/info "Done all days.")
+      (log/info "Inserted" @total-count "events this session, which is now over.")))
 
 
 (defn run-ingest-kafka
