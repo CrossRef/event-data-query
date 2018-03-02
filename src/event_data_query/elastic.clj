@@ -386,7 +386,8 @@
     404 })
 
 (defn insert-events
-  "Insert a batch of Events with string keys."
+  "Insert a batch of Events with string keys.
+   If Elastic reports errors repeatedly, Exit the whole process as all bets are off."
   ([events] (insert-events events false))
   ([events force?]
    (when-not (empty? events)
@@ -397,26 +398,39 @@
 
       ; The result for conflicts will be 40x, but we can safely ignore this.
       ; If we inserted an older version of an Event, we deliebrately want it to be igonred.
-       (try-try-again
-        {:sleep 30000 :tries 5}
-        (fn []
-          (let [result (s/request
-                        @connection {:url "_bulk"
-                                     :method :post
-                                     :body (s/chunks->body batch-actions)})
-                items (-> result :body :items)
+       (try
+         (try-try-again
+          ; Try 30s, 1m, 2m, 4m, 8m, 16m 
+          ; If the ElasticSearch internal queue gets full up it will return:
+          ; :status 429,
+          ; :error {:type "es_rejected_execution_exception", :reason "rejected execution of org.elasticsearch.transport.TransportService$7@32d69338 ..." }
+          ; This means we need to pause to let it ingest its queue.
+          {:sleep 30000 :tries 6 :decay :double}
+          (fn []
+            (let [result (s/request
+                          @connection {:url "_bulk"
+                                       :method :post
+                                       :body (s/chunks->body batch-actions)})
+                  items (-> result :body :items)
 
-                problem-items (remove (fn [item]
-                                        (or
-                                          (-> item :index :status acceptable-index-status-codes)
-                                          (-> item :delete :status acceptable-delete-status-codes)))
-                                      items)]
+                  problem-items (remove (fn [item]
+                                          (or
+                                            (-> item :index :status acceptable-index-status-codes)
+                                            (-> item :delete :status acceptable-delete-status-codes)))
+                                        items)]
 
-            ; If there is an HTTP exception, this will be handled by try-try-again and then an exception will be thrown.
-            ; If there is an error within the request (i.e. an individual Event document), re-trying won't help
-            ; so just report and keep going.
-            (when (not-empty problem-items)
-              (log/error "Unexpected response items" problem-items)))))))))
+              ; If there is an HTTP exception, this will be handled by try-try-again and then an exception will be thrown.
+              ; If there is an error within the request (i.e. an individual Event document), re-trying won't help
+              ; so just report and keep going.
+              (when (not-empty problem-items)
+                (log/error "Unexpected response items:" problem-items)
+                (throw (Exception. "Unexpected response items"))))))
+
+         ; This is a bit extreme, but no more extreme than Elastic raising exceptions after repeated retries.
+         (catch Exception ex
+            (do
+              (log/error "Repeatedly failed to send to ElasticSearch. Exiting process now.")
+              (System/exit 1))))))))
 
 (defn value-sorted-map
   [input]
