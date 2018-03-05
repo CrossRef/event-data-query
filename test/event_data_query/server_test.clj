@@ -8,9 +8,9 @@
     (is (= 12345 (server/try-parse-int "12345")))
     (is (thrown? NumberFormatException (server/try-parse-int "ONE TWO THREE FOUR")))))
 
-(deftest export-event
-  (testing "export-event adds extra fields"
-    (is (= (server/export-event {"input" "event"})
+(deftest document->event
+  (testing "document->event adds extra fields"
+    (is (= (server/document->event {:event {"input" "event"}})
            {"input" "event"
             ; terms taken from docker-compose.yml config
             "terms" "https://doi.org/10.13003/CED-terms-of-use"}))))

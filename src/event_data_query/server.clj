@@ -1,5 +1,6 @@
 (ns event-data-query.server
  (:require  [event-data-query.ingest :as ingest]
+            [event-data-query.scholix :as scholix]
             [event-data-query.elastic :as elastic]
             [event-data-query.parameters :as parameters]
             [event-data-query.query :as query]
@@ -45,10 +46,14 @@
   (when value
     (Integer/parseInt value)))
 
-(defn export-event
-  "Transform an event to send out."
-  [event]
-  (if terms-url (assoc event "terms" terms-url) event))
+(defn document->event
+  "Transform a Document into an Event to send out."
+  [document]
+  
+  (let [event (:event document)]
+    (if terms-url
+      (assoc event "terms" terms-url)
+      event)))
 
 (def default-page-size 1000)
 
@@ -123,7 +128,7 @@
 ; Because of this, we pass in both 'sort' and 'search after' criteria to elastic/search-query
 ; The _id field is a combination of type and id, e.g. "latest#12345".
 (defresource query-events
-  [index-id]
+  [index-id event-transform-f]
   events-defaults
   :malformed?
   (fn [ctx]
@@ -159,7 +164,7 @@
 
   :handle-ok
   (fn [ctx]
-    (let [[events hits facet-results]
+    (let [[events facet-results]
           (elastic/search-query
             index-id
             (::query ctx)
@@ -177,7 +182,7 @@
           message {:next-cursor next-cursor-id
                    :total-results total-results
                    :items-per-page (::rows ctx)
-                   :events (map export-event events)}
+                   :events (map event-transform-f events)}
  
           ; facet-query can be null if not supplied.
           ; we don't want to show a nil result for facets if there was no facet query supplied
@@ -267,7 +272,7 @@
                                                   :message (::error-message ctx)}]})))
 
 (defresource event
-  [index-id id]
+  [index-id id event-transform-f]
   :available-media-types ["application/json"]
   
   :exists? (fn [ctx]
@@ -279,7 +284,7 @@
               {:status "ok"
                :message-type "event"
                :message {
-                 :event (export-event (::event ctx))}})
+                 :event (event-transform-f (::event ctx))}})
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
 
@@ -296,30 +301,29 @@
   (context "/v1" []
 
     ; All resources and sub-resources for each collection.
-    (GET "/events/edited" [] (query-events :edited))
+    (GET "/events/edited" [] (query-events :edited document->event))
     (GET "/events/edited/time.csv" [] (events-time :edited))
-    (GET "/events/edited/:id" [id] (event :edited id))
-    
+    (GET "/events/edited/:id" [id] (event :edited id document->event))
 
-    (GET "/events/deleted" [] (query-events :deleted))
+    (GET "/events/deleted" [] (query-events :deleted document->event))
     (GET "/events/deleted/time.csv" [] (events-time :deleted))
-    (GET "/events/deleted/:id" [id] (event :deleted id))
+    (GET "/events/deleted/:id" [id] (event :deleted id document->event))
 
-    (GET "/events/experimental" [] (query-events :experimental))
+    (GET "/events/experimental" [] (query-events :experimental document->event))
     (GET "/events/experimental/time.csv" [] (events-time :experimental))
-    (GET "/events/experimental/:id" [id] (event :experimental id))
+    (GET "/events/experimental/:id" [id] (event :experimental id document->event))
 
-    (GET "/events/distinct" [] (query-events :distinct))
+    (GET "/events/distinct" [] (query-events :distinct document->event))
     (GET "/events/distinct/time.csv" [] (events-time :distinct))
-    (GET "/events/distinct/:id" [id] (event :distinct id))
+    (GET "/events/distinct/:id" [id] (event :distinct id document->event))
 
-    (GET "/events/scholix" [] (query-events :scholix))
+    (GET "/events/scholix" [] (query-events :scholix scholix/document->event))
     (GET "/events/scholix/time.csv" [] (events-time :scholix))
-    (GET "/events/scholix/:id" [id] (event :scholix id))
+    (GET "/events/scholix/:id" [id] (event :scholix id scholix/document->event))
 
-    (GET "/events" [] (query-events :standard))
+    (GET "/events" [] (query-events :standard document->event))
     (GET "/events/time.csv" [] (events-time :standard))
-    (GET "/events/:id" [id] (event :standard id))))
+    (GET "/events/:id" [id] (event :standard id document->event))))
 
 (defn wrap-cors [handler]
   (fn [request]

@@ -176,7 +176,7 @@
     "comment": "Scholix 1",
     "license": "https://creativecommons.org/publicdomain/zero/1.0/",
     "subj_id": "https://doi.org/10.5167/UZH-30455",
-    "relation_type_id": "references",
+    "relation_type_id": "isReferencedBy",
     "obj_id": "https://doi.org/10.1016/s0305-9006(99)00007-0",
     "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
     "occurred_at": "2018-01-01T00:01:01Z",

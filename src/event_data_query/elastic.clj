@@ -450,7 +450,7 @@
          result)))
 
 (defn search-query
-  "Issue search. Return ElasticSearch results, both as indexed documents and scoped into Events."
+  "Issue search. Return ElasticSearch result as documents."
   [index-id query facet-query page-size sort-criteria search-after-criteria]
   (let [body {:size page-size
               :sort sort-criteria
@@ -466,11 +466,11 @@
 
             ; Return both the documents as indexed and the source Events, for ease of use.
             hits (->> result :body :hits :hits)
-            events (map (comp :event :_source) hits)
+            documents (map :_source hits)
 
             facet-results (when facet-query (-> result :body :aggregations parse-aggregation-response))]
 
-        [events hits facet-results])
+        [documents facet-results])
 
       (catch Exception e
         (log/error "Exception from ElasticSearch")

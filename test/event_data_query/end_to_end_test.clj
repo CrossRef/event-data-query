@@ -93,7 +93,8 @@
                     ; Scholix 1
                     "00000000-0000-0000-0000-000000000009"
                     ; Scholix 2
-                    "00000000-0000-0000-0000-00000000000a"}))
+                    "00000000-0000-0000-0000-00000000000a"})
+            "/standard returns the right set of Events")
           
           (is (= (->> distinct-events (map :id) set)
                  #{ ; Standard 2
@@ -109,32 +110,76 @@
                     "00000000-0000-0000-0000-000000000009"
 
                     ; Scholix 2
-                    "00000000-0000-0000-0000-00000000000a"}))
+                    "00000000-0000-0000-0000-00000000000a"})
+            "/distinct returns the right set of Events")
 
           (is (= (->> edited-events (map :id) set) 
                  #{ ; Edited 1
                     "00000000-0000-0000-0000-000000000005" 
 
                     ; Edited 2
-                    "00000000-0000-0000-0000-000000000006"}))
+                    "00000000-0000-0000-0000-000000000006"})
+            "/edited returns the right set of Events")
 
           (is (= (->> deleted-events (map :id) set)
                  #{; Deleted 1
                    "00000000-0000-0000-0000-000000000007"
 
                    ; Deleted 2
-                   "00000000-0000-0000-0000-000000000008"}))
+                   "00000000-0000-0000-0000-000000000008"})
+            "/deleted returns the right set of Events")
 
           (is (= (->> experimental-events (map :id) set)
                  #{; Experimental 1
                    "00000000-0000-0000-0000-000000000003"
 
                    ; Experimental 2
-                   "00000000-0000-0000-0000-000000000004"}))
+                   "00000000-0000-0000-0000-000000000004"})
+            "/experimental returns the right set of Events")
 
-          (is (= (->> scholix-events (map :id) set) 
-                 #{; Scholix 1
-                   "00000000-0000-0000-0000-000000000009"
+          (is (= (set scholix-events)
+                  #{{:LinkPublicationDate "2018-01-01T00:01:01Z",
+                     :LinkProvider [{:Name "crossref"}],
+                     :RelationshipType {:Name "References"},
+                     :LicenseURL "https://creativecommons.org/publicdomain/zero/1.0/",
+                     :Url
+                     "https://api.eventdata.crossref.org/v1/events/scholix/00000000-0000-0000-0000-00000000000a",
+                     :Source
+                     {:Identifier
+                      {:ID "10.1016/s0305-9006(99)00007-0",
+                       :IDScheme "DOI",
+                       :IDUrl "https://doi.org/10.1016/s0305-9006(99)00007-0"},
+                      :Type
+                      {:Name "literature",
+                       :SubType "journal-article",
+                       :SubTypeSchema "crossref"}},
+                     :Target
+                     {:Identifier
+                      {:ID "10.5167/uzh-30455",
+                       :IDScheme "DOI",
+                       :IDUrl "https://doi.org/10.5167/uzh-30455"},
+                      :Type
+                      {:Name "literature", :SubType "text", :SubTypeSchema "datacite"}}}
+                    {:LinkPublicationDate "2018-01-01T00:01:01Z",
+                     :LinkProvider [{:Name "datacite"}],
+                     :RelationshipType {:Name "IsReferencedBy"},
+                     :LicenseURL "https://creativecommons.org/publicdomain/zero/1.0/",
+                     :Url
+                     "https://api.eventdata.crossref.org/v1/events/scholix/00000000-0000-0000-0000-000000000009",
+                     :Source
+                     {:Identifier
+                      {:ID "10.5167/uzh-30455",
+                       :IDScheme "DOI",
+                       :IDUrl "https://doi.org/10.5167/uzh-30455"},
+                      :Type {:Name "literature", :SubType "text", :SubTypeSchema "datacite"}},
+                     :Target
+                     {:Identifier
+                      {:ID "10.1016/s0305-9006(99)00007-0",
+                       :IDScheme "DOI",
+                       :IDUrl "https://doi.org/10.1016/s0305-9006(99)00007-0"},
+                      :Type
+                      {:Name "literature",
+                       :SubType "journal-article",
+                       :SubTypeSchema "crossref"}}}})))))))
 
-                   ; Scholix 2
-                   "00000000-0000-0000-0000-00000000000a"})))))))
+

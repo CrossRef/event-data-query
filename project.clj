@@ -26,7 +26,8 @@
                  [liberator "0.14.1"]
                  [ring "1.5.0"]
                  [ring/ring-servlet "1.5.0"]
-                 [com.climate/claypoole "1.1.4"]]
+                 [com.climate/claypoole "1.1.4"]
+                 [camel-snake-kebab "0.4.0"]]
   :main ^:skip-aot event-data-query.core
   :plugins [[lein-cljfmt "0.5.7"]]
   :target-path "target/%s"
