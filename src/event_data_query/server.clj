@@ -109,7 +109,7 @@
   [index-id ctx]
   (when-let [event-id (not-empty (get-cursor-value ctx))]
     (let [document (elastic/get-by-id index-id event-id)]
-      (when-not event
+      (when-not document
         (throw (new IllegalArgumentException "Invalid cursor supplied.")))
       document)))
 
