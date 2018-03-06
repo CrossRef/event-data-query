@@ -146,18 +146,18 @@
                      "https://api.eventdata.crossref.org/v1/events/scholix/00000000-0000-0000-0000-00000000000a",
                      :Source
                      {:Identifier
-                      {:ID "10.1016/s0305-9006(99)00007-0",
+                      {:ID "10.1016/S0305-9006(99)00007-0",
                        :IDScheme "DOI",
-                       :IDUrl "https://doi.org/10.1016/s0305-9006(99)00007-0"},
+                       :IDUrl "https://doi.org/10.1016/S0305-9006(99)00007-0"},
                       :Type
                       {:Name "literature",
                        :SubType "journal-article",
                        :SubTypeSchema "crossref"}},
                      :Target
                      {:Identifier
-                      {:ID "10.5167/uzh-30455",
+                      {:ID "10.5167/UZH-30455",
                        :IDScheme "DOI",
-                       :IDUrl "https://doi.org/10.5167/uzh-30455"},
+                       :IDUrl "https://doi.org/10.5167/UZH-30455"},
                       :Type
                       {:Name "literature", :SubType "text", :SubTypeSchema "datacite"}}}
                     {:LinkPublicationDate "2018-01-01T00:01:01Z",
@@ -168,15 +168,15 @@
                      "https://api.eventdata.crossref.org/v1/events/scholix/00000000-0000-0000-0000-000000000009",
                      :Source
                      {:Identifier
-                      {:ID "10.5167/uzh-30455",
+                      {:ID "10.5167/UZH-30455",
                        :IDScheme "DOI",
-                       :IDUrl "https://doi.org/10.5167/uzh-30455"},
+                       :IDUrl "https://doi.org/10.5167/UZH-30455"},
                       :Type {:Name "literature", :SubType "text", :SubTypeSchema "datacite"}},
                      :Target
                      {:Identifier
-                      {:ID "10.1016/s0305-9006(99)00007-0",
+                      {:ID "10.1016/S0305-9006(99)00007-0",
                        :IDScheme "DOI",
-                       :IDUrl "https://doi.org/10.1016/s0305-9006(99)00007-0"},
+                       :IDUrl "https://doi.org/10.1016/S0305-9006(99)00007-0"},
                       :Type
                       {:Name "literature",
                        :SubType "journal-article",

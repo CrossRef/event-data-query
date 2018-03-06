@@ -105,7 +105,7 @@
               v-str-val (apply str v-val)]
 
         (when (acc k-str-val)
-          (throw (new IllegalArgumentException (str "Got duplicate key:" k-str-val))))
+          (throw (new IllegalArgumentException (str "Got duplicate key: " (name k-str-val)))))
 
         (recur rest-tokens (assoc acc k-str-val v-str-val)))))))))
 

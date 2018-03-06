@@ -62,10 +62,17 @@
   (or (try-parse-int (get-in ctx [:request :params "rows"]))
       default-page-size))
 
-(defn get-filters
+(defn get-filters-deprecated
+  "DEPRECATED. Get filter dictionary from the 'filter' param."
       [ctx]
       (when-let [params (get-in ctx [:request :params "filter"])]
-        (let [filters (parameters/parse params keyword)]
+
+        (let [; If multiple 'filter' params supplied, join them.
+              params (if (sequential? params)
+                          (clojure.string/join "," params)
+                          params)
+
+              filters (parameters/parse params keyword)]
           
           ; Throws validation exception.
           (query/validate-filter-keys filters)
@@ -75,6 +82,15 @@
           (if-let [updated-date (get-in ctx [:request :params "from-updated-date"])]
             (assoc filters :from-updated-date updated-date)
             filters))))
+
+
+(defn get-filters
+  "Get filter dictionary from query params."
+  [ctx]
+  (let [params (get-in ctx [:request :params])
+        as-keywords (map (fn [[k v]] [(keyword k) v]) params)
+        relevant (filter (fn [[k v]] (query/filters k)) as-keywords)]
+    (into {} relevant)))
 
 (defn get-facets
   [ctx]
@@ -116,6 +132,18 @@
                                         :message [{:type (::error-subtype ctx)
                                                   :message (::error-message ctx)}]}))})
 
+(def events-recognised-parameters
+  "Set of query parameters we should expect on the /events routes."
+  (clojure.set/union
+    (->> query/filters keys (map keyword) set)
+    #{:cursor :rows :facet :filter}))
+
+
+(defn unrecognised-query-params
+  [ctx]
+  (let [param-keys (->> ctx :request :params keys (map keyword) set)]
+    (clojure.set/difference param-keys events-recognised-parameters)))
+
 
 ; 'events' has two different views
 ; - 'all events' shows every Event that exists.
@@ -134,19 +162,37 @@
   (fn [ctx]
     (try+
       (let [rows (get-rows ctx)
-            filters (get-filters ctx)
+
+            ; Support deprecated filters and new-style filters for now.
+            ; Only one type is allowed though, see :filter-conflict error.
+            deprecated-filters (get-filters-deprecated ctx)
+            new-filters (get-filters ctx)
+            filters (merge deprecated-filters new-filters)
+
             facets (get-facets ctx)
             query (query/build-filter-query filters)
             facet-query (facet/build-facet-query facets)
 
             ; Get the Event that corresponds to the cursor, if supplied.
-            cursor-event (get-cursor-event index-id ctx)]
+            cursor-event (get-cursor-event index-id ctx)
 
-        (log/info "Got filters:" filters "facet:" facets)
+            unrecognised (unrecognised-query-params ctx)]
+
+        (log/info "Got new-filters:" new-filters "deprecated-filters:" deprecated-filters "overall-filters:" filters "facet:" facets)
         (log/info "Execute query:" query "facet:" facet-query)
 
         ; Log the mailto.
         (log/info (json/write-str {:mailto (get-in ctx [:request :params "mailto"])}))
+
+        (when (not-empty unrecognised)
+          (throw+ {:type :validation-failure
+             :subtype :query-parameter-unrecognised
+             :message (str "You supplied unrecognised query parameters: " (clojure.string/join ", " (map name unrecognised)) ". The following query parameters are available:" (clojure.string/join ", " (map name events-recognised-parameters)))}))
+
+        (when (and (not-empty deprecated-filters) (not-empty new-filters))
+          (throw+ {:type :validation-failure
+             :subtype :filter-conflict
+             :message "Deprecated filter style supplied at the same time as new filter style. Please use new style, see the documentation."}))
 
         [false
          {::rows rows
