@@ -92,7 +92,7 @@
 (defn get-cursor-event
   [index-id ctx]
   (when-let [event-id (not-empty (get-cursor-value ctx))]
-    (let [event (elastic/get-by-id index-id event-id)]
+    (let [event (:event (elastic/get-by-id index-id event-id))]
       (when-not event
         (throw (new IllegalArgumentException "Invalid cursor supplied.")))
       event)))
@@ -277,15 +277,15 @@
   :available-media-types ["application/json"]
   
   :exists? (fn [ctx]
-             (if-let [the-event (elastic/get-by-id index-id id)]
-               [true {::event the-event}]
+             (if-let [document (elastic/get-by-id index-id id)]
+               [true {::document document}]
                [false {}]))
 
   :handle-ok (fn [ctx]
               {:status "ok"
                :message-type "event"
                :message {
-                 :event (event-transform-f (::event ctx))}})
+                 :event (event-transform-f (::document ctx))}})
 
   :handle-not-found (fn [ctx] {:status "not-found"}))
 

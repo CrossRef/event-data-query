@@ -531,12 +531,12 @@
         (throw (new Exception "ElasticSearch error"))))))
 
 (defn get-by-id
-  "Get original Event by ID from the given index."
+  "Get original Document by ID from the given index."
   [index-id id]
   (try
     (let [result (s/request @connection
                             {:url (-> index-id index-configs :name (str "/" event-type-name "/" id))
                              :method :get})]
-      (->> result :body :_source :event))
+      (->> result :body :_source))
     (catch Exception ex
       nil)))

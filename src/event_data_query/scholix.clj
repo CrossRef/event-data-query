@@ -147,10 +147,11 @@
                                        :SubType (-> document :obj-content-type)
                                        ; Ditto Source.SubTypeSchema.
                                        :SubTypeSchema (:obj-ra document)}}})
-
-    (catch NullPointerException ex
-      ; All the fields should be in place. However, since the content type and RA are looked up from an external source,
-      ; data might be missing. There may be an NPE when this happens. Log and return nil.
+    ; All the fields should be in place. However, since the content type and RA are looked up from an external source,
+    ; data might be missing. There may be an NPE when this happens. Log and return nil. 
+    ; NullPointerException, java.lang.IllegalArgumentException observed.
+    (catch Exception ex
       (do
         (log/error "Failed to transform event" (:id document))
+        (clojure.pprint/pprint document)
         nil))))
