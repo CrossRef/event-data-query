@@ -106,7 +106,7 @@
    "report"               "literature"
    "report_series"        "literature"
    "service"              "other"
-   "software"             "dataset"
+   "software"             "other"
    "sound"                "other"
    "standard"             "literature"
    "standard_series"      "literature"
