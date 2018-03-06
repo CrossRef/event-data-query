@@ -136,7 +136,7 @@
   "Set of query parameters we should expect on the /events routes."
   (clojure.set/union
     (->> query/filters keys (map keyword) set)
-    #{:cursor :rows :facet :filter}))
+    #{:cursor :rows :facet :filter :mailto}))
 
 
 (defn unrecognised-query-params
