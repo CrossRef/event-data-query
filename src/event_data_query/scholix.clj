@@ -2,6 +2,7 @@
   "Transform Events into Scholix format."
   (:require [crossref.util.doi :as cr-doi]
             [clojure.data.json :as json]
+            [clojure.tools.logging :as log]
             [camel-snake-kebab.core :refer :all]))
 
 (def scholix-relations 
@@ -126,23 +127,30 @@
 (defn document->event
   "Convert a Document as stored in Elastic to a Scholix Link Information Package."
   [document]
-  (when document
-    {:LinkPublicationDate (-> document :event :timestamp)
-                     :LinkProvider [{:Name (:source document)}]
-                     :RelationshipType {:Name (-> document :relation-type ->scholix-relation)}
-                     :LicenseURL (-> document :event :license)
-                     :Url (str canonical-scholix-endpoint (:id document))
-                     :Source {:Identifier {:ID (-> document :subj-doi cr-doi/non-url-doi)
-                                                            :IDScheme "DOI" :IDUrl (-> document :subj-doi cr-doi/normalise-doi)}
-                              :Type {:Name (-> document :subj-content-type ->scholix-content-type)
-                                     :SubType (-> document :subj-content-type)
-                                     ; TODO the schema here is just "crossref" or "datacite". Maybe we want to be more specific?
-                                     :SubTypeSchema (:subj-ra document)}}
+  (try
+    (when document
+      {:LinkPublicationDate (-> document :event :timestamp)
+                       :LinkProvider [{:Name (:source document)}]
+                       :RelationshipType {:Name (-> document :relation-type ->scholix-relation)}
+                       :LicenseURL (-> document :event :license)
+                       :Url (str canonical-scholix-endpoint (:id document))
+                       :Source {:Identifier {:ID (-> document :subj-doi cr-doi/non-url-doi)
+                                                              :IDScheme "DOI" :IDUrl (-> document :subj-doi cr-doi/normalise-doi)}
+                                :Type {:Name (-> document :subj-content-type ->scholix-content-type)
+                                       :SubType (-> document :subj-content-type)
+                                       ; TODO the schema here is just "crossref" or "datacite". Maybe we want to be more specific?
+                                       :SubTypeSchema (:subj-ra document)}}
 
-                     :Target {:Identifier {:ID (-> document :obj-doi cr-doi/non-url-doi)
-                                                            :IDScheme "DOI" :IDUrl (-> document :obj-doi cr-doi/normalise-doi)}
-                              :Type {:Name (-> document :obj-content-type ->scholix-content-type)
-                                     :SubType (-> document :obj-content-type)
-                                     ; Ditto Source.SubTypeSchema.
-                                     :SubTypeSchema (:obj-ra document)}}}))
+                       :Target {:Identifier {:ID (-> document :obj-doi cr-doi/non-url-doi)
+                                                              :IDScheme "DOI" :IDUrl (-> document :obj-doi cr-doi/normalise-doi)}
+                                :Type {:Name (-> document :obj-content-type ->scholix-content-type)
+                                       :SubType (-> document :obj-content-type)
+                                       ; Ditto Source.SubTypeSchema.
+                                       :SubTypeSchema (:obj-ra document)}}})
 
+    (catch NullPointerException ex
+      ; All the fields should be in place. However, since the content type and RA are looked up from an external source,
+      ; data might be missing. There may be an NPE when this happens. Log and return nil.
+      (do
+        (log/error "Failed to transform event" (:id document))
+        nil))))

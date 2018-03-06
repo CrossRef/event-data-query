@@ -113,10 +113,11 @@
             body (when response (-> response :body (json/read-str :key-fn keyword)))
             work-type (condp = ra
                         :crossref (-> body :message :type)
-                        :datacite (-> body :data :attributes :resource-type-id)
+                        :datacite (-> body :data :attributes :resource_type_id)
                         nil)]
       ; If we couldn't discover the RA, then this isn't a real DOI. 
       ; Return nil so this doens't get cached (could produce a false-negative in future).
+
       (when ra
         {:content-type work-type :ra ra :doi non-url-normalized-doi}))
       (catch Exception ex
@@ -133,20 +134,18 @@
   (let [inputs-normalized (map (fn [input]
                                    [input (when (cr-doi/well-formed input)
                                             (cr-doi/non-url-doi input))]) dois)
+ 
         ; Look up each entry into triple.
         from-cache (map (fn [[input-doi normalized-doi]]
                             [input-doi normalized-doi (when normalized-doi (get-work normalized-doi))])
                         inputs-normalized)
-
         missing-entries (filter (fn [[input-doi normalized-doi result]] (nil? result))
                                 from-cache)
-
 
         ; Look up missing ones into triples.
         from-api (map (fn [[input-doi normalized-doi _]]
                           [input-doi normalized-doi (when normalized-doi (get-work-api normalized-doi))])
                       missing-entries)]
-
         (doseq [[_ normalized-doi result] from-api]
           ; Don't save in cache if it wasn't a DOI (or was nil).
           ; Don't save if we couldn't retrieve any data from the API (DOI-like doesn't exist).

@@ -182,7 +182,8 @@
           message {:next-cursor next-cursor-id
                    :total-results total-results
                    :items-per-page (::rows ctx)
-                   :events (map event-transform-f events)}
+                   ; If, under exceptional circumstances, event-transform-f returns nil, exclude that.
+                   :events (keep event-transform-f events)}
  
           ; facet-query can be null if not supplied.
           ; we don't want to show a nil result for facets if there was no facet query supplied

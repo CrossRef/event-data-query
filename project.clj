@@ -7,7 +7,7 @@
                  [org.clojure/core.cache "0.6.5"]
                  [event-data-common "0.1.42"]
                  [org.clojure/data.json "0.2.6"]
-                 [crossref-util "0.1.10"]
+                 [crossref-util "0.1.14"]
                  [clj-http "3.4.1"]
                  [clj-http-fake "1.0.3"]
                  [ring/ring-mock "0.3.0"]
