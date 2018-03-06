@@ -457,6 +457,8 @@
               :query query
               :aggregations (or facet-query {})
               :search_after search-after-criteria}]
+
+    (log/debug "Elastic Query" body)
     (try
       (let [result (s/request
                     @connection

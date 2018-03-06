@@ -105,13 +105,13 @@
   [ctx]
   (get-in ctx [:request :params "cursor"]))
 
-(defn get-cursor-event
+(defn get-cursor-document
   [index-id ctx]
   (when-let [event-id (not-empty (get-cursor-value ctx))]
-    (let [event (:event (elastic/get-by-id index-id event-id))]
+    (let [document (elastic/get-by-id index-id event-id)]
       (when-not event
         (throw (new IllegalArgumentException "Invalid cursor supplied.")))
-      event)))
+      document)))
 
 (def events-defaults
   "Base for 'events' and 'distinct events' resources."
@@ -174,7 +174,7 @@
             facet-query (facet/build-facet-query facets)
 
             ; Get the Event that corresponds to the cursor, if supplied.
-            cursor-event (get-cursor-event index-id ctx)
+            cursor-document (get-cursor-document index-id ctx)
 
             unrecognised (unrecognised-query-params ctx)]
 
@@ -198,7 +198,7 @@
          {::rows rows
           ::query query
           ::facet-query facet-query
-          ::cursor-event cursor-event}])
+          ::cursor-document cursor-document}])
 
       (catch [:type :validation-failure] {:keys [message type subtype]}
         [true {::error-type type
@@ -217,8 +217,8 @@
             (::facet-query ctx)
             (::rows ctx)
             [{:timestamp "asc"} {:_id "desc"}]
-            [(or (-> ctx ::cursor-event :timestamp) 0)
-             (or (-> ctx ::cursor-event :id) "")])
+            [(or (-> ctx ::cursor-document :timestamp) 0)
+             (or (-> ctx ::cursor-document :id) "")])
 
 
            total-results (elastic/count-query index-id (::query ctx))
