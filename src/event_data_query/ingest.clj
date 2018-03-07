@@ -88,9 +88,8 @@
 
 (defn ingest-many
   "Ingest many event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
-  ([events] (ingest-many events false))
-  ([events force?]
-    (elastic/insert-events (filter-whitelists events) force?)))
+  [events]
+  (elastic/insert-events (filter-whitelists events)))
 
 (def replica-collected-url-default
   "https://query.eventdata.crossref.org/events?filter=from-collected-date:%1$s&cursor=%2$s&rows=10000")
@@ -188,7 +187,7 @@
               (doall (get stream "events"))))))))
 
 (defn bus-backfill-days
-  [num-days force?]
+  [num-days]
   (elastic/set-refresh-interval! "-1")
   (let [prefixes (event-bus-prefixes-length event-bus-archive-prefix-length)
         end-date (clj-time/now)
@@ -205,7 +204,7 @@
           (doseq [chunk chunks]
             ; Show the first ID. It will indicate the prefix.
             (log/info "Ingesting chunk starting" (-> chunk first (get "id")) "for" date-str)
-            (ingest-many chunk force?)
+            (ingest-many chunk)
             (swap! total-count #(+ % (count chunk)))))
         (log/info "Finished day" date-str)))))
 

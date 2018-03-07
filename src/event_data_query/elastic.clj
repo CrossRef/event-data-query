@@ -388,8 +388,7 @@
 (defn insert-events
   "Insert a batch of Events with string keys.
    If Elastic reports errors repeatedly, Exit the whole process as all bets are off."
-  ([events] (insert-events events false))
-  ([events force?]
+  [events]
    (when-not (empty? events)
      (let [documents (map event->document events)
            
@@ -430,7 +429,7 @@
          (catch Exception ex
             (do
               (log/error "Repeatedly failed to send to ElasticSearch. Exiting process now.")
-              (System/exit 1))))))))
+              (System/exit 1)))))))
 
 (defn value-sorted-map
   [input]

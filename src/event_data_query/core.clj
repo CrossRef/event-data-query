@@ -36,12 +36,7 @@
                           (do (log/error "Error caught, exiting" ex)
                               (System/exit 1))))
 
-      "bus-backfill-days" (do (ingest/bus-backfill-days (Integer/parseInt (second args)) false)
+      "bus-backfill-days" (do (ingest/bus-backfill-days (Integer/parseInt (second args)))
                               (close))
-
-      ; Useful for re-indexing data to cover a period when there was a bug,
-      ; so data needs to be re-indexed even if the version number is the same.
-      "bus-backfill-days-force" (do (ingest/bus-backfill-days (Integer/parseInt (second args)) true)
-                                    (close))
 
     (log/error "Didn't recognise command" (first args) ". Have another go."))))
