@@ -200,11 +200,13 @@
         (let [events (cp/pmap bus-fetch-parallelism (partial retrieve-events date-str) prefixes)
               all-events (mapcat identity events)
               chunks (partition-all insert-chunk-size all-events)]
+          (log/info "Ingesting chunks for date" date-str)
           (doseq [chunk chunks]
             ; Show the first ID. It will indicate the prefix.
             (log/info "Ingesting chunk starting" (-> chunk first (get "id")) "for" date-str)
             (ingest-many chunk)
-            (swap! total-count #(+ % (count chunk)))))
+            (swap! total-count #(+ % (count chunk)))
+            (log/info "Finished ingesting chunk starting" (-> chunk first (get "id")) "for" date-str ". Inserted total" @total-count "this session.")))
         (log/info "Finished day" date-str)))))
 
 (defn run-ingest-kafka

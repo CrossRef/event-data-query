@@ -8,7 +8,8 @@
             [clj-time.format :as clj-time-format]
             [clojure.tools.logging :as log]
             [robert.bruce :refer [try-try-again]]
-            [config.core :refer [env]])
+            [config.core :refer [env]]
+            [com.climate.claypoole :as cp])
   (:import [java.net URL MalformedURLException]
            [org.elasticsearch.client ResponseException]))
 
@@ -390,7 +391,8 @@
    If Elastic reports errors repeatedly, Exit the whole process as all bets are off."
   [events]
    (when-not (empty? events)
-     (let [documents (map event->document events)
+     ; Because this can result in lots of calls to external APIs with the work-cache, do this in parallel.
+     (let [documents (cp/pmap 100 event->document events)
            
            ; For this set of documents create the appropriate actions 
            batch-actions (mapcat document->batch-actions documents)]

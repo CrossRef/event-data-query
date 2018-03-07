@@ -109,7 +109,8 @@
 
             response (try-try-again
                         {:sleep 10000 :tries 2}
-                        #(when url (client/get url)))
+                        ; Only retry on genuine exceptions. 404 etc won't be fixed by retrying.
+                        #(when url (client/get url {:throw-exceptions false})))
             body (when response (-> response :body (json/read-str :key-fn keyword)))
             work-type (condp = ra
                         :crossref (-> body :message :type)
@@ -129,7 +130,7 @@
 (defn get-for-dois
   "For a sequence of DOIs, perform cached lookups and return in a hash-map.
    When an input isn't a valid DOI, the response is nil."
-  [dois]  
+  [dois]
   ; Map of inputs to normalized DOI (or nil if it isn't valid).
   (let [inputs-normalized (map (fn [input]
                                    [input (when (cr-doi/well-formed input)
