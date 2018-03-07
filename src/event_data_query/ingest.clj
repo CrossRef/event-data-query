@@ -187,12 +187,11 @@
               (doall (get stream "events"))))))))
 
 (defn bus-backfill-days
-  [num-days]
+  [from-date num-days]
   (elastic/set-refresh-interval! "-1")
   (let [prefixes (event-bus-prefixes-length event-bus-archive-prefix-length)
-        end-date (clj-time/now)
-        start-date (clj-time/minus end-date (clj-time/days num-days))
-        date-range (take-while #(clj-time/before? % end-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
+        start-date (clj-time/minus from-date (clj-time/days num-days))
+        date-range (take-while #(clj-time/before? % from-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
         total-count (atom 0)]
     (doseq [date date-range]
       (let [date-str (clj-time-format/unparse ymd-format date)]

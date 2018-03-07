@@ -56,6 +56,7 @@ The following methods are only for Crossref internal use as they depend on acces
  - `lein run server` - run the server. 
  - `lein run queue-continuous` - run automatic continuous replication via a Kafka Queue
  - `lein run bus-backfill-days «days»` - backfill from a number of days in the past from the Event Bus archive
+ - `lein run bus-backfill-days-from «date» «days»` - backfill from a number of days in the past from the Event Bus archive from and including the given date
  - `lein run add-indexes` - one off, ensure that all indexes are present
 
 If the mappings (i.e. fields that ElasticSearch indexes) change, you need to run:

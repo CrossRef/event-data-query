@@ -4,6 +4,7 @@
             [event-data-query.work-cache :as work-cache]
             [event-data-query.server :as server]
             [clj-time.format :as clj-time-format]
+            [clj-time.core :as clj-time]
             [clj-time.coerce :as clj-time-coerce]
             [clojure.tools.logging :as log]
             [event-data-common.core :as common])
@@ -36,7 +37,14 @@
                           (do (log/error "Error caught, exiting" ex)
                               (System/exit 1))))
 
-      "bus-backfill-days" (do (ingest/bus-backfill-days (Integer/parseInt (second args)))
+      "bus-backfill-days" (do (ingest/bus-backfill-days (clj-time/now) (Integer/parseInt (second args)))
+                              (close))
+
+      ; Add a day to the supplied date, as the supplied date is never visited (waits until midnight so the archive is complete).
+      "bus-backfill-days-from" (do (ingest/bus-backfill-days (clj-time/plus
+                                                               (clj-time-coerce/from-string (second args))
+                                                               (clj-time/days 1))
+                                                             (Integer/parseInt (nth args 2)))
                               (close))
 
     (log/error "Didn't recognise command" (first args) ". Have another go."))))
