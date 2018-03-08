@@ -123,7 +123,7 @@
         {:content-type work-type :ra ra :doi non-url-normalized-doi}))
       (catch Exception ex
         (do
-          (log/error "Failed to retrieve metadata for DOI" non-url-normalized-doi)
+          (log/error "Failed to retrieve metadata for DOI" non-url-normalized-doi "error:" (str ex))
           nil)))))
 
 

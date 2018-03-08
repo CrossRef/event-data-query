@@ -19,19 +19,21 @@
   (let [command (first args)
         rest-args (drop 2 args)]
 
-    (common/init)
+    
 
     (elastic/ensure-indexes)
     (work-cache/ensure-index)
 
     (condp = command
       "update-mappings" (elastic/update-mappings)
-      "server" (server/run)
+      "server" (do (common/init)
+                   (server/run))
       "replicate-continuous" (ingest/replicate-continuous)
       "replicate-backfill-days" (do (ingest/replicate-backfill-days (Integer/parseInt (second args)))
                                     (close))
       
       "ingest-kafka" (try
+                       (common/init)
                        (ingest/run-ingest-kafka)
                        (catch Exception ex
                           (do (log/error "Error caught, exiting" ex)
