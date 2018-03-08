@@ -12,13 +12,13 @@
             [clojure.data.json :as json]))
 
 (defn get-response
-  [url-path]
+  [url-path message-key]
   (-> (mock/request :get url-path)
       server/app
       :body
       (json/read-str :key-fn keyword)
       :message
-      :events))
+      message-key))
 
 (deftest end-to-end
   (testing "Events ingested and can be ingested from the archive and retrieved from each Events collection."
@@ -70,14 +70,23 @@
         ; Force Elastic to wait for indexes.
         (is (= 200 (:status (s/request @elastic/connection {:url "_refresh" :method :post}))))
 
-        (let [standard-events (get-response "/v1/events")
-              distinct-events (get-response "/v1/events/distinct")
-              edited-events (get-response "/v1/events/edited")
-              deleted-events (get-response "/v1/events/deleted")
-              experimental-events (get-response "/v1/events/experimental")
-              scholix-events (get-response "/v1/events/scholix")]
+        ; Use both the "events" endpoints and the "events ids" endpoint to check they both return the right selection of Events.
+        (let [standard-events (get-response "/v1/events" :events)
+              distinct-events (get-response "/v1/events/distinct" :events)
+              edited-events (get-response "/v1/events/edited" :events)
+              deleted-events (get-response "/v1/events/deleted" :events)
+              experimental-events (get-response "/v1/events/experimental" :events)
+              scholix-events (get-response "/v1/events/scholix" :link-packages)
 
+              standard-event-ids (get-response "/v1/events/ids" :event-ids)
+              distinct-event-ids (get-response "/v1/events/distinct/ids" :event-ids)
+              edited-event-ids (get-response "/v1/events/edited/ids" :event-ids)
+              deleted-event-ids (get-response "/v1/events/deleted/ids" :event-ids)
+              experimental-event-ids (get-response "/v1/events/experimental/ids" :event-ids)
+              scholix-event-ids (get-response "/v1/events/scholix/ids" :link-package-ids)]
+          
           (is (= (->> standard-events (map :id) set)
+                 (set standard-event-ids)
                  #{ ; Standard 1
                     "00000000-0000-0000-0000-000000000001" 
 
@@ -94,9 +103,10 @@
                     "00000000-0000-0000-0000-000000000009"
                     ; Scholix 2
                     "00000000-0000-0000-0000-00000000000a"})
-            "/standard returns the right set of Events")
+            "/standard and /standard/ids return the right set of Events")
           
           (is (= (->> distinct-events (map :id) set)
+                 (set distinct-event-ids)
                  #{ ; Standard 2
                     "00000000-0000-0000-0000-000000000002"
 
@@ -111,31 +121,34 @@
 
                     ; Scholix 2
                     "00000000-0000-0000-0000-00000000000a"})
-            "/distinct returns the right set of Events")
+            "/distinct and /distinct/ids return the right set of Events")
 
-          (is (= (->> edited-events (map :id) set) 
+          (is (= (->> edited-events (map :id) set)
+                 (set edited-event-ids)
                  #{ ; Edited 1
                     "00000000-0000-0000-0000-000000000005" 
 
                     ; Edited 2
                     "00000000-0000-0000-0000-000000000006"})
-            "/edited returns the right set of Events")
+            "/edited and /edited/ids return the right set of Events")
 
           (is (= (->> deleted-events (map :id) set)
+                 (set deleted-event-ids)
                  #{; Deleted 1
                    "00000000-0000-0000-0000-000000000007"
 
                    ; Deleted 2
                    "00000000-0000-0000-0000-000000000008"})
-            "/deleted returns the right set of Events")
+            "/deleted and /deleted/ids return the right set of Events")
 
           (is (= (->> experimental-events (map :id) set)
+                 (set experimental-event-ids)
                  #{; Experimental 1
                    "00000000-0000-0000-0000-000000000003"
 
                    ; Experimental 2
                    "00000000-0000-0000-0000-000000000004"})
-            "/experimental returns the right set of Events")
+            "/experimental and /experimental/ids return the right set of Events")
 
           (is (= (set scholix-events)
                   #{{:LinkPublicationDate "2018-01-01T00:01:01Z",

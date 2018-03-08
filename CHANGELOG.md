@@ -1,6 +1,30 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 0.2.3 - 2017-03-08
+
+Added /ids endpoints for quick integrity checks.
+
+### Added
+
+ - IDs endpoints:
+   - `/v1/events/ids`
+   - `/v1/events/edited/ids`
+   - `/v1/events/deleted/ids`
+   - `/v1/events/experimental/ids`
+   - `/v1/events/scholix/ids`
+   - `/v1/events/distinct/ids`
+ - Each endpoint has the 'event-id-list` type, except Scholix which is 'link-package-id'.
+
+### Changed
+ - Each endpoint now has a correct `message-type` value.
+ - The key (under `message`) is now correct, dependent on the endpoint.
+ - v1/events/scholix message-type is `link-packages` and key is `link-package`.
+
+### Removed
+
+Nothing.
+
 ## 0.2.0-SNAPSHOT - 2018-02-28
 
 Upgrade from ElasticSearch 5.x to 6.x and performance fixes for updated and deleted Events.
