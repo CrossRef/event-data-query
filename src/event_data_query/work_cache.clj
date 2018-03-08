@@ -111,7 +111,7 @@
                         {:sleep 10000 :tries 2}
                         ; Only retry on genuine exceptions. 404 etc won't be fixed by retrying.
                         #(when url (client/get url {:throw-exceptions false})))
-            body (when response (-> response :body (json/read-str :key-fn keyword)))
+            body (when (= 200 (:status response)) (-> response :body (json/read-str :key-fn keyword)))
             work-type (condp = ra
                         :crossref (-> body :message :type)
                         :datacite (-> body :data :attributes :resource_type_id)
@@ -119,7 +119,7 @@
       ; If we couldn't discover the RA, then this isn't a real DOI. 
       ; Return nil so this doens't get cached (could produce a false-negative in future).
 
-      (when ra
+      (when (and ra work-type)
         {:content-type work-type :ra ra :doi non-url-normalized-doi}))
       (catch Exception ex
         (do

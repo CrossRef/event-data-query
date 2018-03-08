@@ -65,7 +65,7 @@
             #"https://bus.eventdata.crossref.org/events/archive/2018-01-01/.*"
             (fn [request] {:status 200 :body "[]"})}
 
-          (ingest/bus-backfill-days 1 false))
+          (ingest/bus-backfill-days (clj-time/now) 1))
 
         ; Force Elastic to wait for indexes.
         (is (= 200 (:status (s/request @elastic/connection {:url "_refresh" :method :post}))))
