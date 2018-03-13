@@ -31,7 +31,7 @@
 
 (def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
 
-(def insert-chunk-size 10000)
+(def insert-chunk-size 1000)
 
 (defn yesterday
   []
