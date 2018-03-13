@@ -62,8 +62,8 @@
 (defn filter-prefix-whitelist
   [events]
   (if-let [prefixes (deref prefix-whitelist)]
-    (filter #(let [subj-id (get % "subj_id")
-                   obj-id (get % "obj_id")]
+    (filter #(let [subj-id (:subj_id %)
+                   obj-id (:obj_id %)]
              (or 
                  ; There's no DOI in either subj or obj position.
                  ; This can happen in theory.
@@ -77,7 +77,7 @@
 (defn filter-source-whitelist
   [events]
   (if-let [sources (deref source-whitelist)]
-    (filter #(sources (get % "source_id")) events)
+    (filter #(sources (:source_id %)) events)
     events))
 
 (defn filter-whitelists
@@ -105,9 +105,9 @@
     (log/info "Fetch Query API" date-str "cursor" cursor)
     (let [url (format format-str date-str cursor)
           response (try-try-again {:sleep 30000 :tries 10} #(client/get url {:as :stream :timeout 900000}))
-          body (json/read (io/reader (:body response)))
-          events (get-in body ["message" "events"])
-          next-cursor (get-in body ["message" "next-cursor"])]
+          body (json/read (io/reader (:body response)) :key-fn keyword)
+          events (-> body :message :events)
+          next-cursor (-> body :message :next-cursor)]
       (if next-cursor
         (lazy-cat events (fetch-query-api format-str date-str next-cursor))
         events))))
@@ -223,7 +223,7 @@
        (loop []
          (log/info "Polling...")
          (let [^ConsumerRecords records (.poll consumer (int 1000))
-               events (map #(json/read-str (.value %)) records)]
+               events (map #(json/read-str (.value %) :key-fn keyword) records)]
             (log/info "Ingested" (count events) "events")
             (ingest-many events)
             (recur))))))

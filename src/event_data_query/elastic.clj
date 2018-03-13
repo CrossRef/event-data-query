@@ -81,11 +81,11 @@
     ; Delete everything that's updated with the 'delete' type.
     :document->action #(cond
                          (= (:updated %) "deleted") :delete
-                         (get-in % [:event "experimental"]) nil
+                         (-> % :event :experimental) nil
                          :default :index)
 
     ; Document ID should be Event ID.
-    :document->id #(get-in % [:event "id"])}
+    :document->id #(-> % :event :id)}
    
    ;; 'Distinct' index.
    ;; Index of the latest Event per distinct subject-relation-object triple.
@@ -101,7 +101,7 @@
     ; Delete everything that's updated with the 'delete' type.
     :document->action #(cond
                          (= (:updated %) "deleted") :delete
-                         (get-in % [:event "experimental"]) nil
+                         (-> % :event :experimental) nil
                          :default :index)
 
     ; Document ID should be defined by the subj-obj-pair, so we only store one document per pair.
@@ -120,13 +120,13 @@
     ; Remove if they've subsequently been deleted.
     ; Otherwise ignore.
     :document->action #(cond
-                         (get-in % [:event "experimental"]) nil
+                         (-> % :event :experimental) nil
                          (= (:updated %) "edited") :index
                          (= (:updated %) "deleted") :delete
                          :default nil)
 
     ; Document ID should be Event ID.
-    :document->id #(get-in % [:event "id"])}
+    :document->id #(-> % :event :id)}
 
    ;; 'Deleted' index
    ;; Only those Events that have been deleted.
@@ -144,7 +144,7 @@
                       :delete)
 
     ; Document ID should be Event ID.
-    :document->id #(get-in % [:event "id"])}
+    :document->id #(-> % :event :id)}
 
     ;; 'Experimental' index.
     ;; All experimental events, non-production events.
@@ -152,12 +152,12 @@
    {:name (-> env :query-deployment (str "experimental"))
     :mappings (dissoc base-mappings :updated-date :updated)
 
-    :document->action #(if (get-in % [:event "experimental"])
+    :document->action #(if (-> % :event :experimental)
                       :index
                       nil)
     
     ; Document ID should be Event ID.
-    :document->id #(get-in % [:event "id"])}
+    :document->id #(-> % :event :id)}
 
     ;; 'Scholix' index.
     ;; All Events from the 'crossref' and 'datacite' sources.
@@ -176,7 +176,7 @@
                          :default :index)
 
     ; Document ID should be Event ID.
-    :document->id #(get-in % [:event "id"])}})
+    :document->id #(-> % :event :id)}})
 
 
 (def search-url
@@ -253,36 +253,36 @@
   "Transform an Event with string keys into an Elastic document.
    Don't include the :id field, as it depends on the index."
   [event]
-  (when-not (event "subj_id") (throw (new IllegalArgumentException "Missing subj_id")))
-  (when-not (event "obj_id") (throw (new IllegalArgumentException "Missing obj_id")))
+  (when-not (:subj_id event) (throw (new IllegalArgumentException "Missing subj_id")))
+  (when-not (:obj_id event) (throw (new IllegalArgumentException "Missing obj_id")))
   ; subj_id and obj_id may or may not be DOIs.
   (let [; view them as DOIs, with prefixes
-        subj-doi (when-let [pid (get event "subj_id")]
+        subj-doi (when-let [pid (:subj_id event)]
                    (when (cr-doi/well-formed pid) pid))
 
-        obj-doi (when-let [pid (get event "obj_id")]
+        obj-doi (when-let [pid (:obj_id event)]
                   (when (cr-doi/well-formed pid) pid))
 
         subj-doi-prefix (when subj-doi (cr-doi/get-prefix subj-doi))
         obj-doi-prefix (when obj-doi (cr-doi/get-prefix obj-doi))
 
         ; view them as URLs (possibly malformed)
-        subj-id-url (try (new URL (get event "subj_id"))
+        subj-id-url (try (new URL (:subj_id event))
                          (catch MalformedURLException _ nil))
 
-        obj-id-url (try (new URL (get event "obj_id"))
+        obj-id-url (try (new URL (:obj_id event))
                         (catch MalformedURLException _ nil))
 
         ; subj.url and obj.url are optional and may be malformed
-        subj-url (when-let [url-str (get-in event ["subj" "url"])]
+        subj-url (when-let [url-str (-> event :subj :url)]
                    (try (new URL url-str)
                         (catch MalformedURLException _ nil)))
 
-        obj-url (when-let [url-str (get-in event ["obj" "url"])]
+        obj-url (when-let [url-str (-> event :obj :url)]
                   (try (new URL url-str)
                        (catch MalformedURLException _ nil)))
 
-        source-id (event "source_id")
+        source-id (:source_id event)
 
         should-lookup-ra (sources-lookup-ra-metadata source-id)
 
@@ -293,15 +293,15 @@
     {; an event wrapped up in an event. Allow us to retrieve it later.
      :event event
      ; The :id field depends on the index configuration. See :document->id functions.
-     :subj-alternative-id (get-in event ["subj" "alternative-id"])
-     :relation-type (event "relation_type_id")
-     :obj-alternative-id (get-in event ["obj" "alternative-id"])
+     :subj-alternative-id (-> event :subj :alternative-id)
+     :relation-type (:relation_type_id event)
+     :obj-alternative-id (-> event :obj :alternative-id)
      :obj-doi (when obj-doi
                 (cr-doi/normalise-doi obj-doi))
      ; if it's a DOI then normalize, otherwise pass through
      :obj-id (if obj-doi
                (cr-doi/normalise-doi obj-doi)
-               (event "obj_id"))
+               (:obj_id event))
 
      ; RA info. These may or may not be present, so will be nil when not applicable.
      :subj-ra (get-in ra-info [subj-doi :ra])
@@ -313,12 +313,12 @@
      :obj-prefix (when obj-doi (cr-doi/get-prefix obj-doi))
      :obj-url (str obj-url)
      :obj-url-domain (when obj-url (.getHost obj-url))
-     :occurred (coerce/to-long (parse-date (get event "occurred_at")))
+     :occurred (coerce/to-long (parse-date (:occurred_at event)))
      :subj-doi (when subj-doi
                  (cr-doi/normalise-doi subj-doi))
      :subj-id (if subj-doi
                 (cr-doi/normalise-doi subj-doi)
-                (event "subj_id"))
+                (:subj_id event))
      :subj-id-domain (when subj-id-url (.getHost subj-id-url))
      :subj-prefix (when subj-doi (cr-doi/get-prefix subj-doi))
      :subj-url (str subj-url)
@@ -326,9 +326,9 @@
      :source source-id
 
      ; both :timestamp and :updated-date are used for the 'distinct' type.
-     :timestamp (coerce/to-long (parse-date (get event "timestamp")))
-     :updated-date (when-let [date (get event "updated_date")] (coerce/to-long (parse-date date)))
-     :updated (event "updated")}))
+     :timestamp (coerce/to-long (parse-date (:timestamp event)))
+     :updated-date (when-let [date (:updated_date event)] (coerce/to-long (parse-date date)))
+     :updated (:updated event)}))
 
 (defn document->batch-actions
   "From a document create a sequence of Batch API insert actions.
