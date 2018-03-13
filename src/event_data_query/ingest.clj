@@ -164,7 +164,7 @@
 (defn bus-backfill-day
   [date]
   (let [date-str (clj-time-format/unparse ymd-format date)
-        event-channel (chan 10000 (partition-all insert-chunk-size))
+        event-channel (chan insert-chunk-size (partition-all insert-chunk-size))
         total-count (atom 0)]
     (log/info "Ingest for date" date-str "...")
 
