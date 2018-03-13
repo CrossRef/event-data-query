@@ -179,7 +179,7 @@
     (log/info "Ingesting chunks for date" date-str)
     (loop [chunk (<!! event-channel)]
       (log/info "Ingesting chunk starting" (-> chunk first :id) "for" date-str "done" @total-count "so far")
-      ; (ingest-many chunk)
+      (ingest-many chunk)
       (swap! total-count #(+ % (count chunk)))
 
       (when-let [chunk (<!! event-channel)]
