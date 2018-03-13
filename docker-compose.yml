@@ -37,6 +37,7 @@ services:
      - .:/usr/src/app
      - ./.m2-cache:/root/.m2
     environment:
+      - GLOBAL_EVENT_BUS_BASE=https://bus.eventdata.crossref.org
      # Explicitly set QUERY_DEPLOYMENT to be 'test_' for tests.
      - QUERY_DEPLOYMENT=test_
      - GLOBAL_ARTIFACT_URL_BASE=https://artifact.eventdata.crossref.org

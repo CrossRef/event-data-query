@@ -1,7 +1,7 @@
 (ns event-data-query.ingest
  (:require [event-data-query.elastic :as elastic]
            [event-data-common.artifact :as artifact]
-           [cheshire.core :as cheshire]
+           [event-data-common.event-bus :as event-bus]
            [clj-http.client :as client]
            [clj-time.core :as clj-time]
            [clj-time.format :as clj-time-format]
@@ -20,18 +20,18 @@
            [event-data-common.artifact :as artifact]
            [liberator.core :refer [defresource]]
            [liberator.representation :as representation]
-           [clojure.math.combinatorics :as combinatorics]
            [robert.bruce :refer [try-try-again]]
            [clojure.walk :as walk]
            [clojure.tools.logging :as log]
-           [com.climate.claypoole :as cp])
+           [com.climate.claypoole :as cp]
+           [clojure.core.async :refer [chan >! >!! <!! go close! onto-chan]])
   (:import [org.apache.kafka.clients.consumer KafkaConsumer Consumer ConsumerRecords])
   (:gen-class))
 
 
 (def ymd-format (clj-time-format/formatter "yyyy-MM-dd"))
 
-(def insert-chunk-size 1000)
+(def insert-chunk-size 10000)
 
 (defn yesterday
   []
@@ -157,57 +157,50 @@
                   (qt/with-schedule (qc/cron-schedule "5 0 0 * * ?")))]
   (qs/schedule s job trigger)))
 
-(def event-bus-archive-prefix-length 2)
-(def hexadecimal [\0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \a \b \c \d \e \f])
-
-(defn event-bus-prefixes-length
-  [length]
-  (map #(apply str %) (combinatorics/selections hexadecimal length)))
-
 (def bus-fetch-parallelism
   "How many simultaneous requests to the Event Bus archive?"
   10)
 
-(defn retrieve-events
-  "Retrieve a realized list of Events for this date and prefix of the archive."
-  [date-str prefix]
-  (try-try-again
-    {:sleep 30000 :tries 10}
-    (fn []
-      (log/info "Try" date-str prefix)
-      (let [url (str (:query-event-bus-base env) "/events/archive/" date-str "/" prefix)
-            response (client/get url
-                       {:as :stream
-                        :timeout 900000
-                        :headers
-                        {"Authorization" (str "Bearer " (:query-jwt env))}})]
-          (log/info "Got" date-str prefix)
-          (with-open [body (io/reader (:body response))]
-            (let [stream (cheshire/parse-stream body)]
-              (doall (get stream "events"))))))))
+(defn bus-backfill-day
+  [date]
+  (let [date-str (clj-time-format/unparse ymd-format date)
+        event-channel (chan 10000 (partition-all insert-chunk-size))
+        total-count (atom 0)]
+    (log/info "Ingest for date" date-str "...")
+
+    (go
+      (log/info "Start retreive...")
+      (event-bus/retrieve-events-for-date date
+        (fn [events]
+          (onto-chan event-channel events false)))
+      (close! event-channel)
+      (log/info "Finish retreive!"))
+    
+    (log/info "Ingesting chunks for date" date-str)
+    (loop [chunk (<!! event-channel)]
+      (log/info "Ingesting chunk starting" (-> chunk first :id) "for" date-str "done" @total-count "so far")
+      ; (ingest-many chunk)
+      (swap! total-count #(+ % (count chunk)))
+
+      (when-let [chunk (<!! event-channel)]
+        (recur chunk)))
+
+    (log/info "Finished ingestion for date" date-str "!")))
+
 
 (defn bus-backfill-days
   [from-date num-days]
   (elastic/set-refresh-interval! "-1")
-  (let [prefixes (event-bus-prefixes-length event-bus-archive-prefix-length)
-        start-date (clj-time/minus from-date (clj-time/days num-days))
-        date-range (take-while #(clj-time/before? % from-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))
-        total-count (atom 0)]
+  (let [start-date (clj-time/minus from-date (clj-time/days num-days))
+        date-range (take-while #(clj-time/before? % from-date) (clj-time-periodic/periodic-seq start-date (clj-time/days 1)))]
+    
+    (log/info "Backfill" num-days "from" start-date "...")
+    ; Backfill a given day in one 
     (doseq [date date-range]
-      (let [date-str (clj-time-format/unparse ymd-format date)]
-        (log/info "Ingest for date" date-str "...")
-
-        (let [events (cp/pmap bus-fetch-parallelism (partial retrieve-events date-str) prefixes)
-              all-events (mapcat identity events)
-              chunks (partition-all insert-chunk-size all-events)]
-          (log/info "Ingesting chunks for date" date-str)
-          (doseq [chunk chunks]
-            ; Show the first ID. It will indicate the prefix.
-            (log/info "Ingesting chunk starting" (-> chunk first (get "id")) "for" date-str)
-            (ingest-many chunk)
-            (swap! total-count #(+ % (count chunk)))
-            (log/info "Finished ingesting chunk starting" (-> chunk first (get "id")) "for" date-str ". Inserted total" @total-count "this session.")))
-        (log/info "Finished day" date-str)))))
+      ; Do each day as a distinct job, so we don't get overlapping partial days in parallel.
+      (bus-backfill-day date)
+      (log/info "Finished " num-days "days from" start-date "!"))))
+    
 
 (defn run-ingest-kafka
   []

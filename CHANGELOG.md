@@ -20,6 +20,7 @@ Added /ids endpoints for quick integrity checks.
  - Each endpoint now has a correct `message-type` value.
  - The key (under `message`) is now correct, dependent on the endpoint.
  - v1/events/scholix message-type is `link-packages` and key is `link-package`.
+ - Docker image now includes dependencies. It was taking too long to start up in production.
 
 ### Removed
 

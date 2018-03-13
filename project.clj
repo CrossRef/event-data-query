@@ -5,7 +5,7 @@
             :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/core.cache "0.6.5"]
-                 [event-data-common "0.1.42"]
+                 [event-data-common "0.1.43"]
                  [org.clojure/data.json "0.2.6"]
                  [crossref-util "0.1.14"]
                  [clj-http "3.4.1"]
@@ -19,7 +19,6 @@
                  [org.apache.commons/commons-io "1.3.2"]
                  [org.clojure/tools.logging "0.3.1"]
                  [clojurewerkz/quartzite "2.0.0"]
-                 [cheshire "5.7.0"]
                  [slingshot "0.12.2"]
                  [cc.qbits/spandex "0.6.0"]
                  [compojure "1.5.1"]
@@ -27,7 +26,8 @@
                  [ring "1.5.0"]
                  [ring/ring-servlet "1.5.0"]
                  [com.climate/claypoole "1.1.4"]
-                 [camel-snake-kebab "0.4.0"]]
+                 [camel-snake-kebab "0.4.0"]
+                 [org.clojure/core.async "0.4.474"]]
   :main ^:skip-aot event-data-query.core
   :plugins [[lein-cljfmt "0.5.7"]]
   :target-path "target/%s"

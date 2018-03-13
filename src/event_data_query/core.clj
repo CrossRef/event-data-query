@@ -11,6 +11,7 @@
   (:gen-class))
 
 (defn close []
+  (log/info "Close!")
   (shutdown-agents)
   (elastic/close!))
 
@@ -18,8 +19,6 @@
   [& args]
   (let [command (first args)
         rest-args (drop 2 args)]
-
-    
 
     (elastic/ensure-indexes)
     (work-cache/ensure-index)
@@ -40,7 +39,8 @@
                               (System/exit 1))))
 
       "bus-backfill-days" (do (ingest/bus-backfill-days (clj-time/now) (Integer/parseInt (second args)))
-                              (close))
+                              (close)
+                              (log/info "Bye!"))
 
       ; Add a day to the supplied date, as the supplied date is never visited (waits until midnight so the archive is complete).
       "bus-backfill-days-from" (do (ingest/bus-backfill-days (clj-time/plus
