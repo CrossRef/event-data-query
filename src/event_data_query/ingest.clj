@@ -164,23 +164,28 @@
 (defn bus-backfill-day
   [date]
   (let [date-str (clj-time-format/unparse ymd-format date)
-        event-channel (chan insert-chunk-size (partition-all insert-chunk-size))
+        ; Chunks are partitioned before entering the chan, so we only need a couple of chunks' worth.
+        event-channel (chan 2 (partition-all insert-chunk-size))
         total-count (atom 0)]
     (log/info "Ingest for date" date-str "...")
 
+    ; This goroutine will be throttled by the chan's bounded buffer.
     (go
       (log/info "Start retreive...")
       (event-bus/retrieve-events-for-date date
         (fn [events]
-          (onto-chan event-channel events false)))
+          ; Iterate over lazy collection. core.async/onto-chan won't do the job, as it doesn't modify the chan it in place.
+          (doseq [event events]
+            (when event (>!! event-channel event)))))
       (close! event-channel)
       (log/info "Finish retreive!"))
     
     (log/info "Ingesting chunks for date" date-str)
     (loop [chunk (<!! event-channel)]
-      (log/info "Ingesting chunk starting" (-> chunk first :id) "for" date-str "done" @total-count "so far")
+      (log/info "Ingesting chunk starting" (-> chunk first :id) "for" date-str)
       (ingest-many chunk)
       (swap! total-count #(+ % (count chunk)))
+      (log/info "Finished ingesting chunk starting" (-> chunk first :id) "for" date-str "! Done" @total-count "so far...")
 
       (when-let [chunk (<!! event-channel)]
         (recur chunk)))
