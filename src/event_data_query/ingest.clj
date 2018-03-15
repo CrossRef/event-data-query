@@ -214,20 +214,41 @@
                       "key.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
                       "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
                       ; This is only used in the absence of an existing marker for the group.
-                      "auto.offset.reset" "earliest"}]
+                      "auto.offset.reset" "earliest"}
 
-     ; In 'normal' ingestion mode, this gives Elastic enough slack to cope with high volumes.
-     (elastic/set-refresh-interval! "60s")
+        ; Chunks are partitioned before entering the chan, so we only need a couple of chunks' worth.
+        event-channel (chan 2 (partition-all insert-chunk-size))
+        consumer (KafkaConsumer. properties)
+        topic-name (:global-bus-output-topic env)
+        total-count (atom 0)]
 
-     (let [consumer (KafkaConsumer. properties)
-           topic-name (:global-bus-output-topic env)]
-       (log/info "Subscribing to" topic-name)
-       (.subscribe consumer (list topic-name))
-       (log/info "Subscribed to" topic-name "got" (count (or (.assignment consumer) [])) "assigned partitions")
-       (loop []
-         (log/info "Polling...")
-         (let [^ConsumerRecords records (.poll consumer (int 1000))
-               chunk (map #(json/read-str (.value %) :key-fn keyword) records)]
-            (log/info "Ingest chunk of" (count chunk) "starting" (-> chunk first :id) "on" (-> chunk first :timestamp))
-            (ingest-many chunk)
-            (recur))))))
+    ; In 'normal' ingestion mode, this gives Elastic enough slack to cope with high volumes.
+    (elastic/set-refresh-interval! "60s")
+
+    ; This goroutine will be throttled by the chan's bounded buffer.
+    (go
+      (log/info "Subscribing to" topic-name)
+      (.subscribe consumer (list topic-name))
+      (log/info "Subscribed to" topic-name "got" (count (or (.assignment consumer) [])) "assigned partitions")
+
+      (loop []
+        (log/info "Polling...")
+        (let [^ConsumerRecords records (.poll consumer (int 1000))
+              events (map #(json/read-str (.value %) :key-fn keyword) records)]
+          
+          (doseq [event events]
+            (when event (>!! event-channel event)))
+          
+          ; This should never terminate.
+          (recur))))
+    
+    (log/info "Ingest chunks...")
+    (loop [chunk (<!! event-channel)]
+      (log/info "Ingesting chunk starting" (-> chunk first :id) "with timestamp" (-> chunk first :timestamp))
+      (ingest-many chunk)
+      (swap! total-count #(+ % (count chunk)))
+      (log/info "Finished ingesting chunk starting" (-> chunk first :id) "with timestamp" (-> chunk first :timestamp) "! Done" @total-count "so far...")
+
+      (when-let [chunk (<!! event-channel)]
+        (recur chunk)))))
+
