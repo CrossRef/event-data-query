@@ -1,6 +1,6 @@
 # Event Data Query API Server
 
-FROM clojure:lein-2.7.0-alpine
+FROM crossref/event-data-docker-base-build
 MAINTAINER Joe Wass jwass@crossref.org
 
 COPY src /usr/src/app/src
