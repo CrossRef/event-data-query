@@ -209,15 +209,14 @@
 
 (defn run-ingest-kafka
   []
-  (let [properties (java.util.Properties.)]
-     (.put properties "bootstrap.servers" (:global-kafka-bootstrap-servers env))
-     (.put properties "group.id"  "query-input")
-     (.put properties "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-     (.put properties "value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-     
-     ; This is only used in the absence of an existing marker for the group.
-     (.put properties "auto.offset.reset" "earliest")
+  (let [properties  {"bootstrap.servers" (:global-kafka-bootstrap-servers env)
+                     "group.id" "query-input"
+                      "key.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
+                      "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
+                      ; This is only used in the absence of an existing marker for the group.
+                      "auto.offset.reset" "earliest"}]
 
+     ; In 'normal' ingestion mode, this gives Elastic enough slack to cope with high volumes.
      (elastic/set-refresh-interval! "60s")
 
      (let [consumer (KafkaConsumer. properties)
@@ -228,9 +227,7 @@
        (loop []
          (log/info "Polling...")
          (let [^ConsumerRecords records (.poll consumer (int 1000))
-               events (map #(json/read-str (.value %) :key-fn keyword) records)]
-            (log/info "Ingested" (count events) "events")
-            (ingest-many events)
+               chunk (map #(json/read-str (.value %) :key-fn keyword) records)]
+            (log/info "Ingest chunk of" (count chunk) "starting" (-> chunk first :id) "on" (-> chunk first :timestamp))
+            (ingest-many chunk)
             (recur))))))
-
-
