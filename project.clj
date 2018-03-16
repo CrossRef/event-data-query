@@ -31,5 +31,5 @@
   :main ^:skip-aot event-data-query.core
   :plugins [[lein-cljfmt "0.5.7"]]
   :target-path "target/%s"
-  :jvm-opts ["-Duser.timezone=UTC" "-Xmx4G" "-XX:-OmitStackTraceInFastThrow"]
+  :jvm-opts ["-Duser.timezone=UTC" "-Xmx1G" "-XX:-OmitStackTraceInFastThrow"]
   :profiles {:uberjar {:aot :all}})
