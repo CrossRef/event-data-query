@@ -1,5 +1,6 @@
 (ns event-data-query.query
-  (:require [clj-time.core :as clj-time]
+  (:require [event-data-query.elastic :as elastic]
+            [clj-time.core :as clj-time]
             [clj-time.coerce :as coerce]
             [clj-time.format :as clj-time-format]
             [crossref.util.doi :as cr-doi]
@@ -78,7 +79,7 @@
   [params]
   (when-let [id (:subj-id params)]
     (if (cr-doi/well-formed id)
-      (let [doi (cr-doi/normalise-doi id)]
+      (let [doi (elastic/normalize-doi-for-index id)]
         {:term {:subj-doi doi}})
         {:term {:subj-id id}})))
 
@@ -87,7 +88,7 @@
   [params]
   (when-let [id (:obj-id params)]
     (if (cr-doi/well-formed id)
-      (let [doi (cr-doi/normalise-doi id)]
+      (let [doi (elastic/normalize-doi-for-index id)]
         {:term {:obj-doi doi}})
         {:term {:obj-id id}})))
 

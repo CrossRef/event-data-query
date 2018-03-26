@@ -134,15 +134,15 @@
                        :RelationshipType {:Name (-> document :relation-type ->scholix-relation)}
                        :LicenseURL (-> document :event :license)
                        :Url (str canonical-scholix-endpoint (:id document))
-                       :Source {:Identifier {:ID (-> document :subj-doi cr-doi/non-url-doi)
-                                                              :IDScheme "DOI" :IDUrl (-> document :subj-doi cr-doi/normalise-doi)}
+                       :Source {:Identifier {:ID (-> document :subj-id cr-doi/non-url-doi)
+                                                              :IDScheme "DOI" :IDUrl (-> document :subj-id cr-doi/normalise-doi)}
                                 :Type {:Name (-> document :subj-content-type ->scholix-content-type)
                                        :SubType (-> document :subj-content-type)
                                        ; TODO the schema here is just "crossref" or "datacite". Maybe we want to be more specific?
                                        :SubTypeSchema (:subj-ra document)}}
 
-                       :Target {:Identifier {:ID (-> document :obj-doi cr-doi/non-url-doi)
-                                                              :IDScheme "DOI" :IDUrl (-> document :obj-doi cr-doi/normalise-doi)}
+                       :Target {:Identifier {:ID (-> document :obj-id cr-doi/non-url-doi)
+                                                              :IDScheme "DOI" :IDUrl (-> document :obj-id cr-doi/normalise-doi)}
                                 :Type {:Name (-> document :obj-content-type ->scholix-content-type)
                                        :SubType (-> document :obj-content-type)
                                        ; Ditto Source.SubTypeSchema.

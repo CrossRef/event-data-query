@@ -9,7 +9,8 @@
             [clojure.tools.logging :as log]
             [robert.bruce :refer [try-try-again]]
             [config.core :refer [env]]
-            [com.climate.claypoole :as cp])
+            [com.climate.claypoole :as cp]
+            [clojure.string :as string])
   (:import [java.net URL MalformedURLException]
            [org.elasticsearch.client ResponseException]))
 
@@ -31,6 +32,12 @@
     (clj-time-format/parse full-format-no-ms date-str)
     (catch IllegalArgumentException e
       (clj-time-format/parse full-format date-str))))
+
+(defn normalize-doi-for-index
+  "Normalize a DOI to a standard form for index.
+   NB suffix is upper-cased before normalizing, so that the scheme and resolver aren't affected."
+  [doi]
+  (some-> doi cr-doi/non-url-doi string/upper-case cr-doi/normalise-doi))
 
 (def base-mappings
   "The common mapping for Documents. Each index is a slightly different varation."
@@ -296,12 +303,8 @@
      :subj-alternative-id (-> event :subj :alternative-id)
      :relation-type (:relation_type_id event)
      :obj-alternative-id (-> event :obj :alternative-id)
-     :obj-doi (when obj-doi
-                (cr-doi/normalise-doi obj-doi))
-     ; if it's a DOI then normalize, otherwise pass through
-     :obj-id (if obj-doi
-               (cr-doi/normalise-doi obj-doi)
-               (:obj_id event))
+     :obj-doi (normalize-doi-for-index obj-doi)
+     :obj-id (:obj_id event)
 
      ; RA info. These may or may not be present, so will be nil when not applicable.
      :subj-ra (get-in ra-info [subj-doi :ra])
@@ -314,11 +317,8 @@
      :obj-url (str obj-url)
      :obj-url-domain (when obj-url (.getHost obj-url))
      :occurred (coerce/to-long (parse-date (:occurred_at event)))
-     :subj-doi (when subj-doi
-                 (cr-doi/normalise-doi subj-doi))
-     :subj-id (if subj-doi
-                (cr-doi/normalise-doi subj-doi)
-                (:subj_id event))
+     :subj-doi (normalize-doi-for-index subj-doi)
+     :subj-id (:subj_id event)
      :subj-id-domain (when subj-id-url (.getHost subj-id-url))
      :subj-prefix (when subj-doi (cr-doi/get-prefix subj-doi))
      :subj-url (str subj-url)

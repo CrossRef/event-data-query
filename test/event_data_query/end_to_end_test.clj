@@ -79,7 +79,14 @@
               edited-event-ids (get-response "/v1/events/edited/ids" :event-ids)
               deleted-event-ids (get-response "/v1/events/deleted/ids" :event-ids)
               experimental-event-ids (get-response "/v1/events/experimental/ids" :event-ids)
-              scholix-event-ids (get-response "/v1/events/scholix/ids" :link-package-ids)]
+              scholix-event-ids (get-response "/v1/events/scholix/ids" :link-package-ids)
+
+              ; Test case-insensitivity in subject and object DOI matching.
+              subj-doi-lower (get-response "/v1/events?subj-id=10.1016%2fs0305-9006(99)00007-0" :events)
+              subj-doi-upper (get-response "/v1/events?subj-id=10.1016%2fS0305-9006(99)00007-0" :events)
+
+              obj-doi-lower (get-response "/v1/events?obj-id=10.1016%2fs0305-9006(99)00007-0" :events)
+              obj-doi-upper (get-response "/v1/events?obj-id=10.1016%2fS0305-9006(99)00007-0" :events)]
           
           (is (= (->> standard-events (map :id) set)
                  (set standard-event-ids)
@@ -189,4 +196,10 @@
                       :Type
                       {:Name "literature",
                        :SubType "journal-article",
-                       :SubTypeSchema "crossref"}}}})))))))
+                       :SubTypeSchema "crossref"}}}}))
+
+
+          (is (= subj-doi-lower subj-doi-upper) "subj-id query should return the same, case invariant")
+          (is (= obj-doi-lower obj-doi-upper) "subj-id query should return the same, case invariant"))))))
+
+
