@@ -1,49 +1,50 @@
 version: '2'
 
 volumes:
-  esdata1:
+  elasticsearch_6_data:
     driver: local
 
 services:
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
-    container_name: elasticsearch
+  q_elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.2.1
+    container_name: q_elasticsearch
     environment:
-      - cluster.name=docker-cluster
-      - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - http.host=0.0.0.0
-      # - transport.host=127.0.0.1
-      - transport.host=elasticsearch
-      - xpack.security.enabled=false
+      - discovery.type=single-node
+
     ulimits:
       memlock:
         soft: -1
         hard: -1
     mem_limit: 1g
     volumes:
-      - esdata1:/usr/share/elasticsearch/data
+      - elasticsearch_6_data:/usr/share/elasticsearch/data
     ports:
-      - 9202:9202
-      - 9302:9302
+      - 9200:9200
+      - 9300:9300
 
   test:
     depends_on:
-     - elasticsearch
+     - q_elasticsearch
     build: .
     ports:
      - '8100:8100'
     volumes:
      - .:/usr/src/app
+     - ./.m2-cache:/root/.m2
     environment:
-      - GLOBAL_EVENT_BUS_BASE=https://bus.eventdata.crossref.org
-     # Explicitly set QUERY_DEPLOYMENT to be 'test_' for tests.
+     - GLOBAL_EVENT_BUS_BASE=https://bus.eventdata.crossref.org
      - QUERY_DEPLOYMENT=test_
      - GLOBAL_ARTIFACT_URL_BASE=https://artifact.eventdata.crossref.org
+     - QUERY_EVENT_BUS_BASE=https://bus.eventdata.crossref.org
      - QUERY_PORT=8100
+     - QUERY_JWT=TEST
      - GLOBAL_JWT_SECRETS=TEST,TEST2
      - QUERY_WHITELIST_OVERRIDE=true
      - QUERY_TERMS_URL=https://doi.org/10.13003/CED-terms-of-use
-     - QUERY_ELASTIC_URI=http://elasticsearch:9202
+     - QUERY_PREFIX_WHITELIST_ARTIFACT_NAME=crossref-doi-prefix-list
+     - QUERY_ELASTIC_URI=http://q_elasticsearch:9200
     command: "lein run server"
+
+
 

@@ -29,13 +29,9 @@
     ;; Do this on the 2nd of January, which will result in querying the archive for the 1st.
     (clj-time/do-at (clj-time/date-time 2018 01 02 12 00)
       (with-redefs [
-        ; Fake out source-whitelist fetching from the Artifact registry.
-        ingest/source-whitelist
-        (delay #{"crossref" "datacite" "wikipedia"})
-
-        ; Fake out source-whitelist fetching from the Artifact registry.
-        ingest/prefix-whitelist
-        (delay #{"10.5555" "10.6666" "10.1016" "10.5167"})
+         ; We're not filtering anything out in this test.
+         event-data-common.whitelist/filter-events
+         identity
 
         ; Fake out fetching metadata from RAs for Scholix examples.
         ; These match deposits in the resources/test/end-to-end.json
@@ -159,9 +155,9 @@
                      "https://api.eventdata.crossref.org/v1/events/scholix/00000000-0000-0000-0000-00000000000a",
                      :Source
                      {:Identifier
-                      {:ID "10.1016/S0305-9006(99)00007-0",
+                      {:ID "10.1016/s0305-9006(99)00007-0",
                        :IDScheme "DOI",
-                       :IDUrl "https://doi.org/10.1016/S0305-9006(99)00007-0"},
+                       :IDUrl "https://doi.org/10.1016/s0305-9006(99)00007-0"},
                       :Type
                       {:Name "literature",
                        :SubType "journal-article",
@@ -187,12 +183,10 @@
                       :Type {:Name "literature", :SubType "text", :SubTypeSchema "datacite"}},
                      :Target
                      {:Identifier
-                      {:ID "10.1016/S0305-9006(99)00007-0",
+                      {:ID "10.1016/s0305-9006(99)00007-0",
                        :IDScheme "DOI",
-                       :IDUrl "https://doi.org/10.1016/S0305-9006(99)00007-0"},
+                       :IDUrl "https://doi.org/10.1016/s0305-9006(99)00007-0"},
                       :Type
                       {:Name "literature",
                        :SubType "journal-article",
                        :SubTypeSchema "crossref"}}}})))))))
-
-

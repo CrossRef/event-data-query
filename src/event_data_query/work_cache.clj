@@ -1,5 +1,7 @@
 (ns event-data-query.work-cache
-  "Work metadata cache, retrieved using Content Negotiation and stored in ElasticSearch."
+  "Work metadata cache, retrieved using Content Negotiation and stored in ElasticSearch.
+   The cache is case-sensitive, which means that if the same DOI is represented with different case, two entries will be made.
+   This is a trade-off between the likelihood of this happening (low) with the desire to avoid changing the representation of a DOI during the pipeline."
   (:require [crossref.util.doi :as cr-doi]
             [crossref.util.string :as cr-str]
             [qbits.spandex :as s]
@@ -7,7 +9,8 @@
             [clojure.data.json :as json]
             [clojure.tools.logging :as log]
             [robert.bruce :refer [try-try-again]]
-            [config.core :refer [env]])
+            [config.core :refer [env]]
+            [clojure.string :as string])
 
   (:import [java.net URLEncoder]
            [org.elasticsearch.client ResponseException]))
@@ -29,7 +32,7 @@
 
 (defn doi->id
   [doi]
-  (-> doi cr-doi/normalise-doi cr-str/md5))
+  (some-> doi cr-doi/normalise-doi cr-str/md5))
 
 (defn get-work
   "Get the given URL's metadata from the cache."
@@ -87,7 +90,7 @@
           first
           :RA
           (or "")
-          clojure.string/lower-case
+          string/lower-case
           {"datacite" :datacite
            "crossref" :crossref})
 

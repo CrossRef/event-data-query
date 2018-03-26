@@ -5,9 +5,9 @@
             :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/core.cache "0.6.5"]
-                 [event-data-common "0.1.44"]
+                 [event-data-common "0.1.46"]
                  [org.clojure/data.json "0.2.6"]
-                 [crossref-util "0.1.14"]
+                 [crossref-util "0.1.15"]
                  [clj-http "3.4.1"]
                  [clj-http-fake "1.0.3"]
                  [ring/ring-mock "0.3.0"]

@@ -1,6 +1,5 @@
 (ns event-data-query.ingest
  (:require [event-data-query.elastic :as elastic]
-           [event-data-common.artifact :as artifact]
            [event-data-common.event-bus :as event-bus]
            [clj-http.client :as client]
            [clj-time.core :as clj-time]
@@ -16,15 +15,14 @@
            [clojurewerkz.quartzite.triggers :as qt]
            [compojure.core :refer [defroutes GET]]
            [config.core :refer [env]]
-           [crossref.util.doi :as cr-doi]
-           [event-data-common.artifact :as artifact]
            [liberator.core :refer [defresource]]
            [liberator.representation :as representation]
            [robert.bruce :refer [try-try-again]]
            [clojure.walk :as walk]
            [clojure.tools.logging :as log]
            [com.climate.claypoole :as cp]
-           [clojure.core.async :refer [chan >! >!! <!! go close! onto-chan]])
+           [clojure.core.async :refer [chan >! >!! <!! go close! onto-chan]]
+           [event-data-common.whitelist :as whitelist])
   (:import [org.apache.kafka.clients.consumer KafkaConsumer Consumer ConsumerRecords])
   (:gen-class))
 
@@ -37,59 +35,11 @@
   []
   (clj-time/minus (clj-time/now) (clj-time/days 1)))
 
-(defn retrieve-source-whitelist
-  "Retrieve set of source IDs according to config, or nil if not configured."
-  []
-  (when-let [artifact-name (:query-whitelist-artifact-name env)]
-    (let [source-names (-> artifact-name artifact/fetch-latest-artifact-string (clojure.string/split #"\n") set)]
-      (log/info "Retrieved source names:" source-names)
-      source-names)))
-
-(def source-whitelist
-  (delay (retrieve-source-whitelist)))
-
-(defn retrieve-prefix-whitelist
-  "Retrieve set of DOI prefixes as a set according to config, or nil if not configured."
-  []
-  (when-let [artifact-name (:query-prefix-whitelist-artifact-name env)]
-    (let [prefixes (-> artifact-name artifact/fetch-latest-artifact-string (clojure.string/split #"\n") set)]
-      (log/info "Retrieved " (count prefixes) "prefixes" (type prefixes))
-      prefixes)))
-
-(def prefix-whitelist
-  (delay (retrieve-prefix-whitelist)))
-
-(defn filter-prefix-whitelist
-  [events]
-  (if-let [prefixes (deref prefix-whitelist)]
-    (filter #(let [subj-id (:subj_id %)
-                   obj-id (:obj_id %)]
-             (or 
-                 ; There's no DOI in either subj or obj position.
-                 ; This can happen in theory.
-                 (not (or (cr-doi/well-formed subj-id)
-                          (cr-doi/well-formed obj-id)))
-                 ; Or there's a whitelisted DOI prefix in the subject or object.
-                 (prefixes (cr-doi/get-prefix subj-id))
-                 (prefixes (cr-doi/get-prefix obj-id)))) events)
-    events))
-
-(defn filter-source-whitelist
-  [events]
-  (if-let [sources (deref source-whitelist)]
-    (filter #(sources (:source_id %)) events)
-    events))
-
-(defn filter-whitelists
-  [events]
-  (let [filtered (-> events filter-source-whitelist filter-prefix-whitelist)]
-    (log/info "Whitelist filter kept:" (count filtered) "/" (count events) "removed:" (- (count events) (count filtered)))
-    filtered))
-
 (defn ingest-many
-  "Ingest many event with string keys, pre-transformed. Reject if there is a source whitelist and it's not allowed."
+  "Ingest many event with string keys, pre-transformed.
+   Reject if there is a source whitelist and it's not allowed."
   [events]
-  (elastic/insert-events (filter-whitelists events)))
+  (elastic/insert-events (whitelist/filter-events events)))
 
 (def replica-collected-url-default
   "https://query.eventdata.crossref.org/events?filter=from-collected-date:%1$s&cursor=%2$s&rows=10000")
