@@ -12,3 +12,4 @@ pom.xml.asc
 .m2-cache
 .DS_Store
 scrap.txt
+docker-compose-local.yml
