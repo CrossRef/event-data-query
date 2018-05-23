@@ -1,6 +1,17 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 0.2.8 - 2018-05-23
+
+Fix subj.id facet. There was a typo in the field projection, meaning the facet didn't work.
+
+## 0.2.7 - 2018-03-26
+
+Normalize DOI sensitivity when matching subj-id and obj-id. 
+
+ - Using the crossref-util package had the accidental effect of making DOI indexing case-sensitive when it shouldn't be.
+ - Make explicit in code the separation the function of normalization for indexing.
+
 ## 0.2.3 - 2017-03-08
 
 Added /ids endpoints for quick integrity checks.

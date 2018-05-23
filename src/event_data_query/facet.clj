@@ -10,7 +10,7 @@
   {"source" "source"
    "relation-type" "relation-type"
    "obj-id.prefix" "obj-prefix"
-   "subj-id.prefix" "subj.prefix"
+   "subj-id.prefix" "subj-prefix"
    "subj-id.domain" "subj-id-domain"
    "obj-id.domain" "obj-id-domain"
    "subj.url.domain" "subj-url-domain"
