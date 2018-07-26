@@ -8,6 +8,7 @@
             [event-data-common.jwt :as jwt]
             [config.core :refer [env]]
             [clj-time.core :as clj-time]
+            [clj-time.coerce :as clj-time-coerce]
             [clj-time.format :as clj-time-format]
             [clj-time.periodic :as clj-time-periodic]
             [crossref.util.doi :as cr-doi]
@@ -45,6 +46,12 @@
   [value]
   (when value
     (Integer/parseInt value)))
+
+(defn try-parse-long
+  "Parse long, if present, or throw."
+  [value]
+  (when value
+    (Long/parseLong value)))
 
 (defn document->event
   "Transform a Document into an Event to send out."
@@ -341,8 +348,33 @@
                 (representation/ring-response
                   (ring-response/redirect event-data-homepage))))
 
+(def default-ms-ago
+  (* 5 60 1000))
+
+; Simply check that there are Events that exist in the given time period.
+(defresource heartbeat-recent
+  []
+  :available-media-types ["application/json"]
+  :exists? (fn [ctx]
+             (let [since-ms-ago (or (try-parse-long (get-in ctx [:request :params "since-ms-ago"])) default-ms-ago)
+                   query {:range {:timestamp {:gte (- (clj-time-coerce/to-long (clj-time/now))
+                                                      since-ms-ago)}}}
+                   num-events (elastic/count-query :standard query)]
+               [(> num-events 0) {::num-events num-events ::since-ms-ago since-ms-ago}]))
+  :handle-ok (fn [ctx]
+              {:status "ok"
+               :rows (::num-events ctx)
+               :since-ago-ms (::since-ms-ago ctx)})
+  :handle-not-found
+              (fn [ctx]
+                {:status "not-found"
+                 :rows (::num-events ctx)
+                 :since-ago-ms (::since-ms-ago ctx)}))
+
 (defroutes app-routes
   (GET "/" [] (home))
+
+  (GET "/heartbeat/recent" [] (heartbeat-recent))
 
   (context "/v1" []
 

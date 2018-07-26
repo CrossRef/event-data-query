@@ -71,7 +71,7 @@ Because we may recieve data for more sources than we wish to store, the whitelis
 
 Server
 
-    docker-compose -f docker-compose.yml run -w /usr/src/app --service-ports test lein run server.
+    docker-compose -f docker-compose.yml run -w /usr/src/app --service-ports test lein run server
 
 REPL
 
@@ -116,6 +116,10 @@ Running within Crossref:
 | `GLOBAL_KAFKA_BOOTSTRAP_SERVERS`        | Kafka servers                                                  |
 | `GLOBAL_BUS_OUTPUT_TOPIC`               | Topic to look for Events coming out of the Bus.                |
 
+
+## Heartbeat
+
+A heartbeat URL is exposed at `/heartbeat/recent`, which takes the optional query parameter `since-ms-ago`, or uses a default value. It queries for Events with timestamps since a given period of time ago, specified in milliseconds. This will return 200 if there is more than one Event in the time range, or 404 if there are no Events. It's a simple way to check that the Query API is continually ingesting new data.
 
 ## License
 
