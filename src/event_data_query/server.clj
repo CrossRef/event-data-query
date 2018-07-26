@@ -26,6 +26,7 @@
             [clojure.data.json :as json]
             [config.core :refer [env]]
             [compojure.core :refer [defroutes GET POST context]]
+            [ring.logger :as ring-logger]
             [ring.middleware.params :as middleware-params]
             [ring.middleware.resource :as middleware-resource]
             [ring.middleware.content-type :as middleware-content-type]
@@ -419,7 +420,9 @@
      middleware-params/wrap-params
      (middleware-resource/wrap-resource "public")
      (middleware-content-type/wrap-content-type)
-     (wrap-cors)))
+     (wrap-cors)
+     (ring-logger/wrap-with-logger
+        :transform-fn #(some->> % :message json/write-str (assoc % :message))})))
 
 (defn run
   []

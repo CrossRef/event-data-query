@@ -1,4 +1,4 @@
-(defproject event-data-query "0.2.9"
+(defproject event-data-query "0.2.10"
   :description "Event Data Query"
   :url "http://eventdata.crossref.org/"
   :license {:name "MIT License"
@@ -25,6 +25,7 @@
                  [liberator "0.14.1"]
                  [ring "1.5.0"]
                  [ring/ring-servlet "1.5.0"]
+                 [ring-logger "1.0.1"]
                  [com.climate/claypoole "1.1.4"]
                  [camel-snake-kebab "0.4.0"]
                  [org.clojure/core.async "0.4.474"]]
