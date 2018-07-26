@@ -422,7 +422,7 @@
      (middleware-content-type/wrap-content-type)
      (wrap-cors)
      (ring-logger/wrap-with-logger
-        :transform-fn #(some->> % :message json/write-str (assoc % :message))})))
+        {:transform-fn #(some->> % :message json/write-str (assoc % :message))})))
 
 (defn run
   []
