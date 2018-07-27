@@ -48,7 +48,7 @@
             (fn [request] {:status 404})
 
             "https://api.datacite.org/works/10.5167%2Fuzh-30455?include=resource-type"
-            (fn [request] {:status 200 :body "{\"data\": {\"attributes\": {\"resource_type_id\": \"text\"}}}"})}
+            (fn [request] {:status 200 :body "{\"data\": {\"attributes\": {\"resource-type-id\": \"text\"}}}"})}
 
         (let [inputs
                ; Nil may find its way here.

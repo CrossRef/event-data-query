@@ -117,7 +117,7 @@
             body (when (= 200 (:status response)) (-> response :body (json/read-str :key-fn keyword)))
             work-type (condp = ra
                         :crossref (-> body :message :type)
-                        :datacite (-> body :data :attributes :resource_type_id)
+                        :datacite (-> body :data :attributes :resource-type-id)
                         nil)]
       ; If we couldn't discover the RA, then this isn't a real DOI. 
       ; Return nil so this doens't get cached (could produce a false-negative in future).

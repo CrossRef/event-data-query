@@ -115,11 +115,11 @@
 
 (defn ->scholix-relation
   [input]
-  (-> input ->snake_case (scholix-relations "IsRelatedTo")))
+  (some-> input ->snake_case (scholix-relations "IsRelatedTo")))
 
 (defn ->scholix-content-type
   [input]
-  (-> input ->snake_case (scholix-content-types "Other")))
+  (some-> input ->snake_case (scholix-content-types "Other")))
 
 (def canonical-scholix-endpoint
   "https://api.eventdata.crossref.org/v1/events/scholix/")
@@ -151,6 +151,7 @@
     ; data might be missing. There may be an NPE when this happens. Log and return nil. 
     ; NullPointerException, java.lang.IllegalArgumentException observed.
     (catch Exception ex
+      (log/error ex)
       (do
         (log/error "Failed to transform event" (:id document))
         (clojure.pprint/pprint document)
