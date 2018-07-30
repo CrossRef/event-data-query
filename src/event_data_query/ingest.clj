@@ -160,7 +160,11 @@
 (defn run-ingest-kafka
   []
   (let [properties  {"bootstrap.servers" (:global-kafka-bootstrap-servers env)
-                     "group.id" "query-input"
+                     
+                     ; In case there are concurrent ingestions mid query-update, make sure
+                     ; each ingestion group doesn't interfere with the others.
+                     "group.id" (-> env :query-deployment (str "query-input"))
+                     
                       "key.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
                       "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
                       ; This is only used in the absence of an existing marker for the group.
