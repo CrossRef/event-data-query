@@ -21,7 +21,7 @@
         rest-args (drop 2 args)]
 
     (elastic/ensure-indexes)
-    (work-cache/ensure-index)
+    (work-cache/boot!)
 
     (condp = command
       "update-mappings" (elastic/update-mappings)

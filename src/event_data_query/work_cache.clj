@@ -59,10 +59,21 @@
         (s/request @connection {:url [@index-id]
                                 :method :put
                                 :body {:settings {"number_of_shards" 8
-                                                  "number_of_replicas" 2}
+                                                  "number_of_replicas" 1}
                                        :mappings {work-type-name {:properties mapping}}}})
         (catch Exception ex2
           (log/error "Failed to create Work index!" ex2))))))
+
+(defn set-refresh-interval!
+  []
+  (s/request @connection {:url (str @index-id "/_settings")
+                          :method :put
+                          :body {:index {"refresh_interval" "60s"}}}))
+
+(defn boot!
+  []
+  (ensure-index)
+  (set-refresh-interval!))
 
 (defn insert-work
   "Insert a work's metadata, replacing already exists."
