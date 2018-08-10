@@ -221,8 +221,7 @@
       (try
         (s/request @connection {:url (:name index-config)
                                 :method :put
-                                :body {:settings {;"index.mapping.depth.limit" 1
-                                                  "number_of_shards" 8
+                                :body {:settings {"number_of_shards" 256
                                                   "number_of_replicas" 1}
                                        :mappings {event-type-name {:properties (:mappings index-config)}}}})
         (catch Exception ex2
