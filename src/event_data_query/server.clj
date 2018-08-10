@@ -224,6 +224,9 @@
             (::rows ctx)
             [{:timestamp "asc"} {:_id "desc"}]
             [(or (-> ctx ::cursor-document :timestamp) 0)
+             ; Use id for secondary sort to provide some stability. 
+             ; This is explicitly set to use doc_values in the mapping
+             ; to avoid memory-intensive activity on sort.
              (or (-> ctx ::cursor-document :id) "")])
 
 

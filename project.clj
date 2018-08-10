@@ -1,4 +1,4 @@
-(defproject event-data-query "0.2.16"
+(defproject event-data-query "0.2.17"
   :description "Event Data Query"
   :url "http://eventdata.crossref.org/"
   :license {:name "MIT License"

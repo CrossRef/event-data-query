@@ -43,7 +43,8 @@
   "The common mapping for Documents. Each index is a slightly different varation."
   {; we also have an unindexed 'event' field which is used contain the original Event verbatim.
    :event {:type "object" :enabled false}
-   :id {:type "keyword"}
+   ; Explicitly set doc_values (even though it's enabled by default as of Elasticsearch 6.x) as we use ID for secondary sort.
+   :id {:type "keyword" :doc_values true}
    :obj-doi {:type "keyword"}
    :obj-id {:type "keyword"}
    :obj-alternative-id {:type "keyword"}
