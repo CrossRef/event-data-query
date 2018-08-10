@@ -554,5 +554,5 @@
        (#(clojure.string/split % #"\n"))
        (map #(clojure.string/split %  #" +"))
        (map first)
-       (every? #{"yellow"})
+       (every? #{"green"})
        boolean))
