@@ -375,10 +375,22 @@
                  :rows (::num-events ctx)
                  :since-ago-ms (::since-ms-ago ctx)}))
 
+(defresource heartbeat-indices
+  []
+  :available-media-types ["application/json"]
+  :service-available? (fn [ctx]
+                       (elastic/all-indices-green))
+  :handle-ok (fn [ctx]
+              {:status "ok"})
+  :handle-service-not-available
+    (fn [ctx]
+      (json/write-str {:status "not available"})))
+
 (defroutes app-routes
   (GET "/" [] (home))
 
   (GET "/heartbeat/recent" [] (heartbeat-recent))
+  (GET "/heartbeat/indices" [] (heartbeat-indices))
 
   (context "/v1" []
 

@@ -543,3 +543,16 @@
       (->> result :body :_source))
     (catch Exception ex
       nil)))
+
+(defn all-indices-green
+  "Simply return whether or not all indexes are in the green state."
+  []
+  (->> (s/request
+        @connection
+        {:url (str "/_cat/indices/" (:query-deployment env) "*") :method :get})
+       :body
+       (#(clojure.string/split % #"\n"))
+       (map #(clojure.string/split %  #" +"))
+       (map first)
+       (every? #{"yellow"})
+       boolean))
