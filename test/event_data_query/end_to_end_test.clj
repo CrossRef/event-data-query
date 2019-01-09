@@ -87,7 +87,7 @@
 
               obj-doi-lower (get-response "/v1/events?obj-id=10.1016%2fs0305-9006(99)00007-0" :events)
               obj-doi-upper (get-response "/v1/events?obj-id=10.1016%2fS0305-9006(99)00007-0" :events)]
-          
+
           (is (= (->> standard-events (map :id) set)
                  (set standard-event-ids)
                  #{ ; Standard 1
@@ -105,7 +105,10 @@
                     ; Scholix 1
                     "00000000-0000-0000-0000-000000000009"
                     ; Scholix 2
-                    "00000000-0000-0000-0000-00000000000a"})
+                    "00000000-0000-0000-0000-00000000000a"
+
+                    ; Twitter
+                    "00000000-0000-0000-0000-00000000000b"})
             "/standard and /standard/ids return the right set of Events")
           
           (is (= (->> distinct-events (map :id) set)
@@ -123,7 +126,10 @@
                     "00000000-0000-0000-0000-000000000009"
 
                     ; Scholix 2
-                    "00000000-0000-0000-0000-00000000000a"})
+                    "00000000-0000-0000-0000-00000000000a"
+
+                    ; Twitter
+                    "00000000-0000-0000-0000-00000000000b"})
             "/distinct and /distinct/ids return the right set of Events")
 
           (is (= (->> edited-events (map :id) set)

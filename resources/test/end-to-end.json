@@ -1,214 +1,237 @@
-{"events": [
-  {
-    "comment": "Standard 1",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/standard-1",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000001",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/page1"
+{
+  "events": [
+    {
+      "comment": "Standard 1",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/standard-1",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000001",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/page1"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z"
     },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
+    {
+      "comment": "Standard 2 (dupe of standard-1)",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/standard-1",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000002",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/page1"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z"
     },
-    "timestamp": "2018-01-01T00:01:01Z"
-  },
-  {
-    "comment": "Standard 2 (dupe of standard-1)",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/standard-1",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000002",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/page1"
+    {
+      "comment": "Experimental 1",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/experimental-1",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000003",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/page1"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z",
+      "experimental": true
     },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
+    {
+      "comment": "Experimental 2",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/experimental-2",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000004",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/page1"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z",
+      "experimental": true
     },
-    "timestamp": "2018-01-01T00:01:01Z"
-  },
-
-  {
-    "comment": "Experimental 1",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/experimental-1",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000003",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/page1"
+    {
+      "comment": "Edited 1",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/edited-1",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000005",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/page1"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z",
+      "updated_date": "2018-01-31T15:30:00Z",
+      "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
+      "updated": "edited"
     },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
+    {
+      "comment": "Edited 2",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/page1",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000006",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/edited-2"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z",
+      "updated_date": "2018-01-31T15:30:00Z",
+      "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
+      "updated": "edited"
     },
-    "timestamp": "2018-01-01T00:01:01Z",
-    "experimental": true
-  },
-
-  {
-    "comment": "Experimental 2",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/experimental-2",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000004",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/page1"
+    {
+      "comment": "Deleted 1",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/deleted-1",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000007",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/page1"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z",
+      "updated_date": "2018-01-31T15:30:00Z",
+      "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
+      "updated": "deleted"
     },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
+    {
+      "comment": "Deleted 2",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://www.example.com/deleted-2",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5555/12345678",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000008",
+      "action": "add",
+      "subj": {
+        "pid": "https://www.example.com/page1"
+      },
+      "source_id": "wikipedia",
+      "obj": {
+        "pid": "https://doi.org/10.5555/12345678"
+      },
+      "timestamp": "2018-01-01T00:01:01Z",
+      "updated_date": "2018-01-31T15:30:00Z",
+      "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
+      "updated": "deleted"
     },
-    "timestamp": "2018-01-01T00:01:01Z",
-    "experimental": true
-  },
-
-  {
-    "comment": "Edited 1",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/edited-1",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000005",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/page1"
+    {
+      "comment": "Scholix 1",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://doi.org/10.5167/UZH-30455",
+      "relation_type_id": "isReferencedBy",
+      "obj_id": "https://doi.org/10.1016/s0305-9006(99)00007-0",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-000000000009",
+      "action": "add",
+      "subj": {
+        "pid": "https://doi.org/10.5167/UZH-30455"
+      },
+      "source_id": "datacite",
+      "obj": {
+        "pid": "https://doi.org/10.1016/s0305-9006(99)00007-0"
+      },
+      "timestamp": "2018-01-01T00:01:01Z"
     },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
+    {
+      "comment": "Scholix 2",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "subj_id": "https://doi.org/10.1016/s0305-9006(99)00007-0",
+      "relation_type_id": "references",
+      "obj_id": "https://doi.org/10.5167/UZH-30455",
+      "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
+      "occurred_at": "2018-01-01T00:01:01Z",
+      "id": "00000000-0000-0000-0000-00000000000a",
+      "action": "add",
+      "subj": {
+        "pid": "https://doi.org/10.1016/s0305-9006(99)00007-0"
+      },
+      "source_id": "crossref",
+      "obj": {
+        "pid": "https://doi.org/10.5167/UZH-30455"
+      },
+      "timestamp": "2018-01-01T00:01:01Z"
     },
-    "timestamp": "2018-01-01T00:01:01Z",
-    "updated_date": "2018-01-31T15:30:00Z",
-    "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
-    "updated": "edited"
-  },
-
-  {
-    "comment": "Edited 2",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/page1",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000006",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/edited-2"
-    },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
-    },
-    "timestamp": "2018-01-01T00:01:01Z",
-    "updated_date": "2018-01-31T15:30:00Z",
-    "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
-    "updated": "edited"
-  },
-
-  {
-    "comment": "Deleted 1",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/deleted-1",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000007",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/page1"
-    },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
-    },
-    "timestamp": "2018-01-01T00:01:01Z",
-    "updated_date": "2018-01-31T15:30:00Z",
-    "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
-    "updated": "deleted"
-  },
-
-  {
-    "comment": "Deleted 2",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://www.example.com/deleted-2",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5555/12345678",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000008",
-    "action": "add",
-    "subj": {
-      "pid": "https://www.example.com/page1"
-    },
-    "source_id": "wikipedia",
-    "obj": {
-      "pid": "https://doi.org/10.5555/12345678"
-    },
-    "timestamp": "2018-01-01T00:01:01Z",
-    "updated_date": "2018-01-31T15:30:00Z",
-    "updated_reason": "https://evidence.eventdata.crossref.org/announcements/2018-01-19T00-00-00Z-ED-15.json",
-    "updated": "deleted"
-  },
-
-  {
-    "comment": "Scholix 1",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://doi.org/10.5167/UZH-30455",
-    "relation_type_id": "isReferencedBy",
-    "obj_id": "https://doi.org/10.1016/s0305-9006(99)00007-0",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-000000000009",
-    "action": "add",
-    "subj": {
-      "pid": "https://doi.org/10.5167/UZH-30455"
-    },
-    "source_id": "datacite",
-    "obj": {
-      "pid": "https://doi.org/10.1016/s0305-9006(99)00007-0"
-    },
-    "timestamp": "2018-01-01T00:01:01Z"
-  },
-
-  {
-    "comment": "Scholix 2",
-    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "subj_id": "https://doi.org/10.1016/s0305-9006(99)00007-0",
-    "relation_type_id": "references",
-    "obj_id": "https://doi.org/10.5167/UZH-30455",
-    "source_token": "36c35e23-8757-4a9d-aacf-345e9b7eb50d",
-    "occurred_at": "2018-01-01T00:01:01Z",
-    "id": "00000000-0000-0000-0000-00000000000a",
-    "action": "add",
-    "subj": {
-      "pid": "https://doi.org/10.1016/s0305-9006(99)00007-0"
-    },
-    "source_id": "crossref",
-    "obj": {
-      "pid": "https://doi.org/10.5167/UZH-30455"
-    },
-    "timestamp": "2018-01-01T00:01:01Z"
-  }
-]}
+    {
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "obj_id": "https://doi.org/10.1098/rspb.2016.0792",
+      "source_token": "45a1ef76-4f43-4cdc-9ba8-5a6ad01cc231",
+      "occurred_at": "2017-02-17T09:17:34Z",
+      "subj_id": "twitter://status?id=832519346811310080",
+      "id": "00000000-0000-0000-0000-00000000000b",
+      "evidence_record": "https://evidence.eventdata.crossref.org/evidence/20170217f49152d6-b592-4320-a927-ee514d41600a",
+      "action": "add",
+      "subj": {
+        "pid": "twitter://status?id=832519346811310080",
+        "title": "Tweet 832519346811310080",
+        "issued": "2017-02-17T09:17:34.000Z",
+        "author": {
+          "url": "twitter://user?screen_name=PaulKiem"
+        },
+        "original-tweet-url": "twitter://status?id=832196260924841989",
+        "original-tweet-author": "twitter://user?screen_name=ScholarsLeague",
+        "alternative-id": "832519346811310080"
+      },
+      "source_id": "twitter",
+      "obj": {
+        "pid": "https://doi.org/10.1098/rspb.2016.0792",
+        "url": "https://doi.org/10.1098/rspb.2016.0792"
+      },
+      "timestamp": "2017-02-17T12:20:02Z",
+      "updated_date": "2018-05-02T17:15:40Z",
+      "relation_type_id": "discusses"
+    }
+  ]
+}
