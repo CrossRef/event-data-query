@@ -31,6 +31,10 @@
 
 (def insert-chunk-size 1000)
 
+(def max-event-size
+  "If an Event is larger than this, reject it from the index."
+  10000)
+
 (defn yesterday
   []
   (clj-time/minus (clj-time/now) (clj-time/days 1)))
@@ -155,7 +159,13 @@
       ; Do each day as a distinct job, so we don't get overlapping partial days in parallel.
       (bus-backfill-day date)
       (log/info "Finished " num-days "days from" start-date "!"))))
-    
+
+(defn too-long?
+  [string]
+  (when (> (.length string) max-event-size)
+    (log/error "Rejecting event too long:"
+               (-> string (json/read-str :key-fn keyword) :id))
+    true))
 
 (defn run-ingest-kafka
   []
@@ -188,7 +198,12 @@
       (loop []
         (log/info "Polling...")
         (let [^ConsumerRecords records (.poll consumer (int 1000))
-              events (map #(json/read-str (.value %) :key-fn keyword) records)]
+              events-strings (map #(.value %) records)
+              ; Remove Events that are too large to index. This only happens in
+              ; 'emergency' situations, we never expect it to really happen in
+              ; normal operation.
+              events-filtered (remove too-long? events-strings)
+              events (map #(json/read-str % :key-fn keyword) events-filtered)]
           
           (doseq [event events]
             (when event (>!! event-channel event)))
