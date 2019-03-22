@@ -392,6 +392,7 @@
   [events]
    (when-not (empty? events)
      ; Because this can result in lots of calls to external APIs with the work-cache, do this in parallel.
+     (log/info "Insert events with IDs:" (map :id events))
      (let [documents (cp/pmap 100 event->document events)
            
            ; For this set of documents create the appropriate actions 
